@@ -20,3 +20,5 @@ This repository starts from a fresh Harness program baseline. Product-specific f
 |--------|--------|-------------|
 | Setup completion rate | > 90% | Users successfully complete initial setup |
 | Validation pass rate | 100% | `bun harness:validate` succeeds |
+
+- Happy path branch commit.
