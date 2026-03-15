@@ -2,108 +2,86 @@
 
 Public skill repository for Harness Engineering workflows.
 
-This repository currently publishes one installable skill:
+This repository currently publishes a single installable skill:
 
-- `harness-engineering-orchestrator`: orchestrate a new or existing software project through discovery, planning, scaffold setup, execution, and validation
+- `harness-engineering-orchestrator`: an orchestration skill for running software projects through a repo-backed lifecycle from discovery to validated completion.
 
-## What Is Harness Engineering?
+Harness Engineering focuses on making agent-assisted development stateful and resumable. Instead of keeping plans in chat history, key project decisions are written to versioned repository files (`AGENTS.md`, `CLAUDE.md`, `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, `.harness/state.json`, etc.) so work can continue across sessions and agents without context loss.
 
-Harness Engineering is a practical way to build software with AI agents where the repository, not the chat, is the source of truth.
+## What this repository contains
 
-Instead of leaving planning and execution context trapped in a conversation, the important project state is written into versioned files such as `AGENTS.md`, `CLAUDE.md`, `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, and `.harness/state.json`. That makes agent work resumable, reviewable, and handoff-friendly across Claude Code and Codex.
+- `README.md`: this entry page and high-level usage guide.
+- `README.en.md`: English documentation.
+- `README.zh-CN.md`: Chinese documentation.
+- `harness-engineering-orchestrator/`: the published skill package.
+  - `SKILL.md`: the runtime contract the skill executes.
+  - `agents/`: role prompts and operating guides.
+  - `references/`: templates and helper docs.
+  - `scripts/`: optional automation helpers.
+  - `templates/`: scaffold files and example structure.
 
-## Core Ideas
+## Language
 
-- Chat is input; repo files are state.
-- Planning is not complete until repo-backed artifacts are updated.
-- Execution is not complete until code, validation, and task state agree.
-- Handoffs should work from repository state alone, without relying on chat memory.
-
-## What This Skill Does
-
-`harness-engineering-orchestrator` is an orchestration skill, not just a repo generator.
-
-It is designed for two common starting points:
-
-- `Greenfield`: start from an idea and drive the project through discovery, market research, stack selection, PRD, architecture, scaffold, execution, and validation
-- `Existing codebase`: hydrate an existing repository with the Harness runtime, documents, milestone tracking, and validation gates
-
-Typical requests include:
-
-- `Bootstrap a new project with Harness Engineering.`
-- `Turn this repo into a Harness-managed workflow.`
-- `Create a PRD, architecture, milestone backlog, and execution loop for this app.`
-- `Retrofit this existing codebase for Claude Code and Codex collaboration.`
-
-## Workflow Phases
-
-The orchestrator centers the project around a controlled lifecycle:
-
-```text
-DISCOVERY -> MARKET_RESEARCH -> TECH_STACK -> PRD_ARCH -> SCAFFOLD -> EXECUTING -> VALIDATING -> COMPLETE
-```
-
-The goal is to keep product intent, architecture, backlog state, and validation gates synchronized as the work moves forward.
-
-## What It Produces
-
-Depending on project type and current repo state, the skill can create or maintain:
-
-- `docs/PRD.md` for scope, milestones, requirements, and acceptance criteria
-- `docs/ARCHITECTURE.md` for system shape, dependency direction, data flow, and technical constraints
-- `docs/PROGRESS.md` for milestone and task tracking
-- `.harness/state.json` and related runtime files
-- `AGENTS.md` and `CLAUDE.md` as the agent operating contract
-- `docs/adr/` and `docs/gitbook/` as supporting documentation surfaces
-- scaffold files, CI/CD baselines, and validation commands required for execution
-
-## Why This Is Useful
-
-Most agent-assisted projects break down in the same places: plans stay trapped in chat, handoffs lose context, and task status drifts away from the actual codebase.
-
-Harness Engineering addresses that by making project state explicit and versioned. Humans and agents can inspect the same artifacts, resume safely, and keep progress synchronized over time.
+- English: [README.en.md](README.en.md)
+- Chinese: [README.zh-CN.md](README.zh-CN.md)
 
 ## Install
-
-This repository publishes the skill from the `harness-engineering-orchestrator/` directory:
 
 ```bash
 npx skills add https://github.com/Phlegonlabs/Harness-engineering-skills --skill harness-engineering-orchestrator
 ```
 
-## Quick Usage
+## When to use this skill
 
-After installing, prompts like these should trigger the skill:
+Use the orchestrator when you want AI assistants to operate through a structured, file-backed project loop rather than ad-hoc prompts.
+
+- New project launches (greenfield): idea → discovery → stack selection → PRD → architecture → scaffold → execution → validation.
+- Existing projects: bring legacy or partially structured repos into a consistent Harness workflow.
+- Team handoff: make task state inspectable by agents and humans from the repository alone.
+
+Typical prompts:
 
 - `Bootstrap a new TypeScript monorepo with Harness Engineering.`
-- `Retrofit this existing repo with PRD, architecture, progress tracking, and Harness validation.`
-- `Turn this app idea into milestones and a validated execution workflow.`
-- `Set up a repo-backed project workflow for Claude Code and Codex.`
+- `Turn this existing repo into a repo-backed workflow with PRD, architecture, and progress tracking.`
+- `Set up Harness validation gates and execution loop for this codebase.`
 
-## Repository Layout
+## What it can generate
+
+- `docs/PRD.md`: requirements, scope, milestones, acceptance criteria.
+- `docs/ARCHITECTURE.md`: system structure, data flow, constraints, and decisions.
+- `docs/PROGRESS.md`: milestone/task progress and completion state.
+- `.harness/state.json`: canonical runtime state for orchestration.
+- `AGENTS.md` + `CLAUDE.md`: machine-readable and human-readable collaboration contracts.
+- `docs/adr/`, `docs/gitbook/`: supporting documentation structures used during execution.
+- Validation and scaffold artifacts for repeatable build/test checks.
+
+## Workflow in brief
 
 ```text
-Harness-engineering-skills/
-├── README.md
-├── README.en.md
-├── README.zh-CN.md
-└── harness-engineering-orchestrator/
-    ├── SKILL.md
-    ├── agents/
-    ├── references/
-    ├── scripts/
-    └── templates/
+DISCOVERY -> MARKET_RESEARCH -> TECH_STACK -> PRD_ARCH -> SCAFFOLD -> EXECUTING -> VALIDATING -> COMPLETE
 ```
 
-- `README.md`: language selector for the public repository landing page
-- `README.en.md`: English overview
-- `README.zh-CN.md`: Chinese overview
-- `harness-engineering-orchestrator/SKILL.md`: the skill contract used by the runtime
-- `harness-engineering-orchestrator/agents/`: role-specific operating guides
-- `harness-engineering-orchestrator/references/`: templates, rules, and supporting references
-- `harness-engineering-orchestrator/scripts/`: setup and supporting automation
+The key principle is that planning is not "done" until repo artifacts are updated, and execution is not "done" until code, validation, and task state are aligned.
 
-## Read More
+## Quick verification after install
 
-- [Chinese README](./README.zh-CN.md)
-- [Skill Contract](./harness-engineering-orchestrator/SKILL.md)
+After installing the skill in a target repo, verify these files exist or are created:
+
+- `AGENTS.md`
+- `CLAUDE.md`
+- `docs/PRD.md`
+- `docs/ARCHITECTURE.md`
+- `docs/PROGRESS.md`
+- `.harness/state.json`
+
+If these are present and readable, your repo is likely on the right track for the Harness loop.
+
+## Contributing
+
+This repo is intentionally small and focused. If you use the orchestrator in new ways, you can contribute by adding missing reference templates, strengthening gates, or improving execution playbooks. PRs and issue-based suggestions are welcome.
+
+## References
+
+- [Chinese documentation](./README.zh-CN.md)
+- [English documentation](./README.en.md)
+- [Skill contract](./harness-engineering-orchestrator/SKILL.md)
