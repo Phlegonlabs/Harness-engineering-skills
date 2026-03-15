@@ -2,17 +2,22 @@
 
 Public skill repository for Harness Engineering workflows.
 
-This repository currently publishes a single installable skill:
+This repository is the public home for Harness skill packages.
+
+It currently publishes a single installable skill:
 
 - `harness-engineering-orchestrator`: an orchestration skill for running software projects through a repo-backed lifecycle from discovery to validated completion.
 
 Harness Engineering focuses on making agent-assisted development stateful and resumable. Instead of keeping plans in chat history, key project decisions are written to versioned repository files (`AGENTS.md`, `CLAUDE.md`, `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, `.harness/state.json`, etc.) so work can continue across sessions and agents without context loss.
+
+The repository is intentionally shaped to support multiple domain skill packages over time. `harness-engineering-orchestrator` is the first published package, and future packages can sit beside it under the same root.
 
 ## What this repository contains
 
 - `README.md`: this entry page and high-level usage guide.
 - `README.en.md`: English documentation.
 - `README.zh-CN.md`: Chinese documentation.
+- `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`: repository-level open source metadata and contribution policy.
 - `harness-engineering-orchestrator/`: the published skill package.
   - `SKILL.md`: the runtime contract the skill executes.
   - `agents/`: role prompts and operating guides.
@@ -27,9 +32,40 @@ Harness Engineering focuses on making agent-assisted development stateful and re
 
 ## Install
 
+### Prerequisites
+
+- `git`
+- `bun`
+- a client that supports `skills add`
+
+### Install the skill package
+
 ```bash
 npx skills add https://github.com/Phlegonlabs/Harness-skills --skill harness-engineering-orchestrator
 ```
+
+### Use it in a target repository
+
+For a new repository:
+
+```bash
+bun <path-to-installed-skill>/scripts/harness-setup.ts
+```
+
+For an existing repository:
+
+```bash
+bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --skipGithub=true
+```
+
+After setup or hydration, continue from inside the target repository with:
+
+```bash
+bun .harness/orchestrator.ts
+bun harness:advance
+```
+
+For the full skill-level operator flow, see [harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md).
 
 ## When to use this skill
 
@@ -95,4 +131,7 @@ This repo is intentionally small and focused. If you use the orchestrator in new
 
 - [Chinese documentation](./README.zh-CN.md)
 - [English documentation](./README.en.md)
+- [License](./LICENSE)
+- [Contributing](./CONTRIBUTING.md)
+- [Security](./SECURITY.md)
 - [Skill contract](./harness-engineering-orchestrator/SKILL.md)

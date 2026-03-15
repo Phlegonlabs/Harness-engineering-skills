@@ -1,0 +1,56 @@
+# Contributing to Harness Skills
+
+Thanks for contributing. This repository is meant to grow into a multi-skill catalog, so contributions should improve either the shared repository shape or a specific skill package without making the workflow harder to reason about.
+
+## Repository Structure
+
+Each installable skill should live in its own top-level directory. Today the main published package is:
+
+- `harness-engineering-orchestrator/`
+
+Over time, this repository may include additional domain-specific skills such as engineering, marketing, research, or other repo-backed workflows.
+
+## What Good Contributions Look Like
+
+Good pull requests usually do one of these:
+
+- add or improve a skill package
+- improve installability or documentation at the repository level
+- strengthen runtime gates, hooks, or validation behavior
+- improve templates, references, or onboarding docs
+- clarify operator workflows so the documented behavior matches the real implementation
+
+Prefer small, decision-clear pull requests over broad refactors.
+
+## Before Opening a PR
+
+1. Keep the change scoped.
+2. Update docs if behavior changes.
+3. Run the relevant test or verification command for the skill you touched.
+4. Run:
+
+```bash
+git diff --check
+```
+
+If you changed `harness-engineering-orchestrator/`, run the focused runtime tests from the repo root:
+
+```bash
+bun test harness-engineering-orchestrator/references/runtime/backlog.test.ts
+bun test harness-engineering-orchestrator/references/runtime/stage.test.ts
+bun test harness-engineering-orchestrator/references/runtime/orchestrator/milestone-closeout.test.ts
+bun test harness-engineering-orchestrator/references/runtime/orchestrator/phase-readiness.test.ts
+bun test harness-engineering-orchestrator/references/runtime/progress.test.ts
+```
+
+## PR Expectations
+
+- Explain what problem existed before.
+- Explain what changed.
+- State how the change was validated.
+- Avoid documenting behavior that the runtime does not actually implement.
+- Do not weaken guardrails without making the tradeoff explicit.
+
+## Security
+
+For security reports, do not open a public issue first. Use the process in [SECURITY.md](./SECURITY.md).

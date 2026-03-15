@@ -60,6 +60,7 @@ This skill is designed as an open workflow project, not as a one-off prompt pack
 - The runtime behavior lives in `references/`
 - The role prompts live in `agents/`
 - The generated project scaffold lives in `templates/`
+- The open-source project metadata lives in `LICENSE`, `CONTRIBUTING.md`, and `SECURITY.md`
 
 If you are evaluating the project from the outside, read this README first, then [SKILL.md](./SKILL.md), then [agents/orchestrator.md](./agents/orchestrator.md).
 
@@ -215,6 +216,9 @@ Use this as the practical runbook from project start to project finish.
 ## Related References
 
 - [SKILL.md](./SKILL.md)
+- [LICENSE](./LICENSE)
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+- [SECURITY.md](./SECURITY.md)
 - [agents/orchestrator.md](./agents/orchestrator.md)
 - [references/gates-and-guardians.md](./references/gates-and-guardians.md)
 - [references/hooks-guide.md](./references/hooks-guide.md)
