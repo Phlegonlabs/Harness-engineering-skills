@@ -91,14 +91,27 @@ Codex CLI notification hooks are **non-blocking** — they receive a JSON payloa
 
 Execpolicy rules in `.codex/rules/guardian.rules` are **blocking** — they prevent commands from executing at the CLI level before they reach the shell.
 
-Rules use a Starlark-style format evaluated top-down (first match wins):
+Rules use `prefix_rule()` entries. Codex compares the command's argv tokens against the configured prefix and applies the most restrictive matching decision:
 
+```python
+prefix_rule(
+    pattern = ["git", "commit", "--no-verify"],
+    decision = "forbidden",
+    justification = "Do not bypass git hooks. Run git commit without --no-verify.",
+)
+prefix_rule(
+    pattern = ["git", "add", "."],
+    decision = "forbidden",
+    justification = "Stage only the files you intend to change instead of using git add .",
+)
+prefix_rule(
+    pattern = ["git", "add", "LEARNING.md"],
+    decision = "forbidden",
+    justification = "Do not stage LEARNING.md. Move the notes to the user-level knowledge base instead.",
+)
 ```
-forbidden("git commit --no-verify")   # G2: prevent hook bypass
-forbidden("git add .")                # Dangerous staging
-forbidden("git add -A")              # Dangerous staging
-forbidden("git add LEARNING.md")     # G9: LEARNING.md must not be staged
-```
+
+Because `prefix_rule()` matches a command prefix rather than an arbitrary argument anywhere in the command, keep the git hooks in place as the final enforcement layer for variants like `git commit -m "..." --no-verify`.
 
 These rules cover guardians that can be enforced at the command level:
 - **G2** (partial): blocks `--no-verify` flag to prevent hook bypass
@@ -160,6 +173,6 @@ To add a new guardian enforcement rule:
 1. **For pattern-based rules**: Add to `FORBIDDEN_PATTERN_RULES` in `.harness/runtime/validation/helpers.ts`
 2. **For git hook logic**: Add to the appropriate handler in `.harness/runtime/hooks/check-guardian.ts`
 3. **For Claude-specific rules**: Add to the `claudePreWrite` or `claudePreBash` handler
-4. **For Codex CLI execpolicy**: Add `forbidden()` / `prompt()` / `allow()` entries in `.codex/rules/guardian.rules`
+4. **For Codex CLI execpolicy**: Add `prefix_rule()` entries in `.codex/rules/guardian.rules` with `decision = "forbidden" | "prompt" | "allow"`
 5. **For Codex CLI notifications**: Add handling for new events in the `codexNotify()` function
 6. Update the guardian-to-hook mapping table in this document
