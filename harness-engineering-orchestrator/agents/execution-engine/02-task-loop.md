@@ -56,3 +56,4 @@ When the last Task in a Milestone is complete and the Milestone enters the Revie
 1. **Update GitBook guide** — ensure the user-facing documentation in `docs/guide/` reflects all features delivered in this Milestone
 2. **Add CHANGELOG entry** — append a summary of changes to `CHANGELOG.md` under the current version/milestone heading
 3. **Update API reference** — if the Milestone introduced or modified API endpoints, update `docs/api/` or the relevant API reference documentation
+4. **Merge milestone** — Return to the main worktree and run `bun harness:merge-milestone M[N]`

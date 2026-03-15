@@ -251,6 +251,7 @@ function Test-ScaffoldContract {
     "harness:sync-skills",
     "harness:api:add",
     "harness:state",
+    "harness:merge-milestone",
     "harness:compact",
     "harness:compact:milestone",
     "harness:compact:status"

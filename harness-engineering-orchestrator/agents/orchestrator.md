@@ -161,6 +161,26 @@ bun .harness/orchestrator.ts --code-review  # Dispatch Code Reviewer (non-UI tas
 - Use `blockTask()` for `BLOCKED` tasks; do not fake completion
 - Any new requirement must update the PRD before creating a new milestone or worktree
 
+### Milestone Completion Protocol
+
+When all tasks in a milestone are DONE and the milestone enters REVIEW:
+
+1. **Review Checklist** — Complete the items in `agents/execution-engine/02-task-loop.md` (GitBook, CHANGELOG, API docs)
+2. **Compact context** — Run `bun harness:compact --milestone`
+3. **Merge milestone** — From the main worktree, run:
+   ```bash
+   bun harness:merge-milestone M[N]
+   ```
+   This merges the branch into main, removes the worktree, deletes the branch, and updates state to MERGED.
+4. **Verify** — Run `bun .harness/orchestrator.ts` to confirm the next milestone is activated
+5. **Continue or advance** — If more milestones remain, proceed. If all are MERGED, run `bun harness:advance` to enter VALIDATING.
+
+Rules:
+- Merge one milestone at a time, in order
+- Never skip the merge step — the VALIDATING gate requires all milestones to be MERGED or COMPLETE
+- If the merge has conflicts, resolve them before continuing
+- The COMPLETE gate requires all worktrees cleaned up (`git worktree list` → main only)
+
 ## Guardians
 
 The Orchestrator is responsible for enforcing all ten guardians. The table below assigns ownership and validation method for each:

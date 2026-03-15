@@ -104,6 +104,32 @@ export function blockTask(taskId: string, reason: string): ProjectState {
   return updated
 }
 
+export function completeMilestone(milestoneId: string, mergeCommit: string): ProjectState {
+  const state = readState()
+  const milestone = state.execution.milestones.find(m => m.id === milestoneId)
+  if (!milestone) throw new Error(`Milestone ${milestoneId} not found`)
+  if (milestone.status !== "REVIEW") {
+    throw new Error(`Milestone ${milestoneId} is ${milestone.status}, expected REVIEW`)
+  }
+
+  milestone.status = "MERGED"
+  milestone.mergeCommit = mergeCommit
+  milestone.completedAt = milestone.completedAt ?? new Date().toISOString()
+
+  if (state.execution.currentMilestone === milestoneId) {
+    state.execution.currentMilestone = ""
+    state.execution.currentTask = ""
+    state.execution.currentWorktree = ""
+  }
+
+  refreshMilestoneStatuses(state)
+  activateNextTask(state)
+
+  const updated = writeState(state)
+  console.log(`✅ Milestone ${milestoneId} marked MERGED (commit: ${mergeCommit})`)
+  return updated
+}
+
 export function advancePhase(newPhase: Phase): ProjectState {
   const state = readState()
   state.phase = newPhase

@@ -83,11 +83,16 @@ function getCurrentPhase(): string {
 // Git hook handlers
 // ---------------------------------------------------------------------------
 
+function isExecutingOrLater(): boolean {
+  const phase = getCurrentPhase()
+  return ["EXECUTING", "VALIDATING", "COMPLETE"].includes(phase)
+}
+
 function hookPreCommit(): void {
   const errors: string[] = []
 
-  // G2: No commits on protected branches
-  if (isProtectedBranch()) {
+  // G2: No commits on protected branches (only enforced from EXECUTING onward)
+  if (isExecutingOrLater() && isProtectedBranch()) {
     errors.push("G2: committing directly on main/master is forbidden. Create a feature branch first.")
   }
 
@@ -150,7 +155,9 @@ function hookCommitMsg(msgFile: string): void {
 }
 
 function hookPrePush(): void {
-  // G5: Dependency direction
+  // G5: Dependency direction (only enforced from EXECUTING onward)
+  if (!isExecutingOrLater()) return
+
   const result = spawnSync(["bun", "run", "check:deps"])
   if (!result.ok) {
     console.error("\n[harness-hooks] Pre-push blocked:")
@@ -237,8 +244,8 @@ function claudePreBash(): void {
   const cmd = payload.input.command ?? ""
   const errors: string[] = []
 
-  // G2: Block git commit on protected branch
-  if (/\bgit\s+commit\b/.test(cmd) && isProtectedBranch()) {
+  // G2: Block git commit on protected branch (only enforced from EXECUTING onward)
+  if (/\bgit\s+commit\b/.test(cmd) && isExecutingOrLater() && isProtectedBranch()) {
     errors.push("G2: git commit on main/master is forbidden. Create a feature branch first.")
   }
 

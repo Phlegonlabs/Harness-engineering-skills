@@ -92,6 +92,7 @@ function copyHarnessRuntime(skillRoot: string, logger: SetupLogger): void {
     ["harness-sync-docs.ts", ".harness/sync-docs.ts"],
     ["harness-sync-skills.ts", ".harness/sync-skills.ts"],
     ["harness-api-add.ts", ".harness/api-add.ts"],
+    ["harness-merge-milestone.ts", ".harness/merge-milestone.ts"],
   ] as const
 
   for (const [sourceFile, destination] of entryFiles) {
@@ -405,6 +406,7 @@ function updatePackageJson(logger: SetupLogger): void {
     "harness:guardian": "bun .harness/validate.ts --guardian",
     "harness:resume": "bun .harness/resume.ts",
     "harness:orchestrate": "bun .harness/orchestrator.ts",
+    "harness:merge-milestone": "bun .harness/merge-milestone.ts",
     "harness:compact": "bun .harness/compact.ts",
     "harness:compact:milestone": "bun .harness/compact.ts --milestone",
     "harness:compact:status": "bun .harness/compact.ts --status",

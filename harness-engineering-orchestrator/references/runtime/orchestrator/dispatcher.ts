@@ -68,7 +68,23 @@ function getDiscoveryAction(state: ProjectState): DispatchResult {
 
 function getExecutingAction(state: ProjectState): DispatchResult {
   const milestone = getCurrentMilestone(state)
-  if (!milestone) return noAction("No active milestone. Run: bun .harness/init.ts --from-prd")
+  if (!milestone) {
+    const reviewMilestone = state.execution.milestones.find(m => m.status === "REVIEW")
+    if (reviewMilestone) {
+      return manualGuidance(
+        `Milestone ${reviewMilestone.id} is in REVIEW. Complete the Milestone Review Checklist, then run:\n` +
+        `  bun harness:merge-milestone ${reviewMilestone.id}`
+      )
+    }
+    return noAction("No active milestone. Run: bun .harness/init.ts --from-prd")
+  }
+
+  if (milestone.status === "REVIEW") {
+    return manualGuidance(
+      `Milestone ${milestone.id} is in REVIEW. Complete the Milestone Review Checklist, then run:\n` +
+      `  bun harness:merge-milestone ${milestone.id}`
+    )
+  }
 
   if (needsFrontendDesigner(state)) {
     return agentDispatch("frontend-designer", state)

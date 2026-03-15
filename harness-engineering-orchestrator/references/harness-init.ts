@@ -11,12 +11,12 @@
 
 import { existsSync } from "fs"
 import { bootstrapExecutionFromPrd } from "./runtime/backlog"
-import { advancePhase, blockTask, completeTask } from "./runtime/execution"
+import { advancePhase, blockTask, completeMilestone, completeTask } from "./runtime/execution"
 import { getLearningPaths, syncLearning } from "./runtime/learning"
 import { ensureProjectDirs, initState, readState, updateState, writeState } from "./runtime/state-core"
 import { STATE_PATH } from "./runtime/shared"
 
-export { advancePhase, blockTask, bootstrapExecutionFromPrd, completeTask, getLearningPaths, initState, syncLearning, updateState }
+export { advancePhase, blockTask, bootstrapExecutionFromPrd, completeMilestone, completeTask, getLearningPaths, initState, syncLearning, updateState }
 
 function getArgValue(flag: string): string | undefined {
   const args = process.argv.slice(2)

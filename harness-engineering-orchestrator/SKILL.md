@@ -259,6 +259,15 @@ Task types:
 8. Update `docs/PROGRESS.md` and runtime state
 9. Continue only when the task gate passes
 
+### Milestone Merge
+
+When all tasks in a milestone are complete (status: REVIEW):
+
+1. Complete the Milestone Review Checklist (GitBook, CHANGELOG, API docs)
+2. Run `bun harness:compact --milestone`
+3. Run `bun harness:merge-milestone M[N]` from the main worktree
+4. Continue to the next milestone, or `bun harness:advance` when all milestones are merged
+
 ### Progress Reporting
 
 Report progress using:
@@ -359,6 +368,7 @@ bun harness:compact                         # Generate context snapshot
 bun .harness/orchestrator.ts                # Dispatch the next agent (status/next also work)
 bun .harness/orchestrator.ts --review       # Dispatch Design Reviewer (UI tasks)
 bun .harness/orchestrator.ts --code-review  # Dispatch Code Reviewer (non-UI tasks)
+bun harness:merge-milestone M[N]           # Merge a REVIEW milestone into main, clean up worktree
 bun harness:hooks:install                   # Restore local Harness files, then re-install git hooks, Claude Code settings, and Codex CLI config
 bun harness:add-surface --type=<TYPE>       # Add a new project surface (e.g. api, android-app)
 bun harness:audit                           # Full audit: guardians, phase gate, workspace, docs drift
