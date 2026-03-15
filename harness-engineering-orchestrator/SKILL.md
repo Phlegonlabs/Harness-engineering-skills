@@ -57,6 +57,30 @@ When this skill runs, act as the **Orchestrator**.
 
 For the runtime state model and phase gate discipline, see [agents/orchestrator.md](./agents/orchestrator.md).
 
+## Pacing Discipline
+
+CRITICAL — these rules override all other guidance when there is a conflict:
+
+1. **One phase per response.** Complete only the current phase. Never combine work from two phases in a single response.
+2. **One question per response during Discovery.** Each discovery question (Q0–Q9) must be its own message. End your response after asking the question. Wait for the user's answer before continuing.
+3. **STOP at every phase boundary.** After completing a phase's work, you MUST:
+   - Present a completion summary for that phase
+   - Ask the user to confirm before advancing
+   - STOP. Do not call `bun harness:advance` until the user confirms.
+4. **Verify before advancing.** Run the phase gate validation command and show the result before asking to advance.
+5. **Never auto-advance through multiple phases.** Even if a gate passes, wait for user acknowledgment.
+
+### Mandatory Checkpoints
+
+| After completing... | You must STOP and get confirmation before... |
+|---|---|
+| Discovery (Q0–Q9) | Entering Market Research |
+| Market Research summary | Entering Tech Stack |
+| Each tech stack layer | Asking the next layer |
+| All stack decisions confirmed | Entering PRD & Architecture |
+| PRD + Architecture drafts | Entering Scaffold |
+| Scaffold verification checklist | Entering EXECUTING |
+
 ## Runtime Path
 
 ```text
@@ -89,7 +113,7 @@ Regardless of the starting point, the project must end up with:
 
 Goal: capture just enough product, delivery, and design context to enter the research or stack phase cleanly.
 
-Ask one question at a time and persist each answer immediately.
+Ask exactly one question per response. End your response after the question. Do not ask the next question until the user answers. Persist each answer immediately before asking the next question.
 
 Capture at minimum:
 

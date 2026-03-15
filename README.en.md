@@ -63,6 +63,17 @@ DISCOVERY -> MARKET_RESEARCH -> TECH_STACK -> PRD_ARCH -> SCAFFOLD -> EXECUTING 
 
 The key principle is that planning is not "done" until repo artifacts are updated, and execution is not "done" until code, validation, and task state are aligned.
 
+### Pacing discipline
+
+The orchestrator enforces strict step-by-step execution:
+
+- **One question per response** during Discovery — each question is its own turn, waiting for the user's answer before continuing.
+- **One phase per response** — work from two phases is never combined in a single message.
+- **Mandatory checkpoints** at every phase boundary — the orchestrator summarizes, validates, and asks for confirmation before advancing.
+- **Granular scaffold verification** — every `.harness/` runtime file, config, doc, and build script is individually checked before entering EXECUTING.
+
+This prevents the common failure mode where the LLM rushes through phases, skips validation, or enters execution with an incomplete scaffold.
+
 ## Quick verification after install
 
 After installing the skill in a target repo, verify these files exist or are created:

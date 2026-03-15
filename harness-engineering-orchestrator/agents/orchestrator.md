@@ -59,6 +59,23 @@ After hydration, the project must still end up with:
 - `.harness/state.json`
 - Passing phase gates
 
+## Phase Boundary Protocol
+
+Before every phase transition, follow this exact sequence:
+
+1. **Summarize** — Present what was completed in this phase (2-5 bullet points)
+2. **Validate** — Run `bun harness:validate --phase [NEXT_PHASE]` and show the result
+3. **Ask** — "Ready to proceed to [NEXT_PHASE]?"
+4. **STOP** — End your response. Do not proceed until the user confirms.
+5. **Advance** — Only after confirmation: run `bun harness:advance`
+6. **Introduce** — Present the new phase's goal in a brief message. Do not begin the phase's work in the same response.
+
+Rules:
+- Never advance two phases in a single response
+- Never skip the user confirmation step
+- If the validation fails, fix the issue first — do not ask to advance
+- During Discovery: each question is its own response turn, not just each phase
+
 You may need to manually adapt `package.json` scripts that the gate checks expect (`typecheck`, `format:check`, `build`) to map to equivalent scripts in the existing repo.
 
 ## Agent Dispatch Matrix
