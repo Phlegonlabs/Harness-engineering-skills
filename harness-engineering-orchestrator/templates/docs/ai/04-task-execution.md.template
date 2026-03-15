@@ -17,6 +17,8 @@
 
 > If formatting fails, run `bun run format` to auto-fix, then re-submit.
 
+> If the user adds new feature scope that is not already represented by the current Task / PRD mapping, stop implementation. Update `docs/PRD.md` / `docs/prd/` first, run `bun harness:sync-backlog`, then resume execution from the new milestone/task.
+
 ### Context Compact
 
 Use the current orchestrator task packet as the default execution input. Do not scan broad documentation directories unless the packet explicitly tells you to.

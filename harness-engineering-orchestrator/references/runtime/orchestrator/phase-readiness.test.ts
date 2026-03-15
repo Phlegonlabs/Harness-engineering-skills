@@ -74,6 +74,7 @@ function materializeScaffoldArtifacts(state: ProjectState): void {
         workspaces: ["apps/*", "packages/*"],
         scripts: {
           "harness:advance": "bun .harness/advance.ts",
+          "harness:sync-backlog": "bun .harness/init.ts --sync-from-prd",
           "harness:autoflow": "bun .harness/orchestrator.ts --auto",
           "harness:merge-milestone": "bun .harness/merge-milestone.ts",
         },

@@ -38,7 +38,7 @@ Git hooks (.git/hooks/*)              Codex execpolicy (.codex/rules/guardian.ru
 | G7 | UI design closed-loop | — | — | — | Instruction-level (AGENTS.md) |
 | G8 | AGENTS.md = CLAUDE.md | post-commit | PostToolUse(Write\|Edit) | — | Auto-sync via sync-agents.ts |
 | G9 | LEARNING.md not in repo | pre-commit | PreToolUse(Bash) | execpolicy | Block staging of LEARNING.md |
-| G10 | Atomic commit format | commit-msg | PreToolUse(Bash) | — | Validate Task-ID in message |
+| G10 | Atomic commit format | commit-msg | PreToolUse(Bash) | — | Validate the current Task-ID and PRD mapping in feature-branch commit messages |
 
 ## Claude Code Hook Protocol
 

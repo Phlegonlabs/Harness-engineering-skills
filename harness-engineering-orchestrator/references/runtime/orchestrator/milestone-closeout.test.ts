@@ -1,0 +1,266 @@
+import { afterEach, beforeEach, expect, test } from "bun:test"
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
+import { tmpdir } from "os"
+import { dirname, join } from "path"
+import type { ProjectState } from "../../types"
+import { completeTask } from "../execution"
+import { initState } from "../state-core"
+import { writeProjectStateToDisk } from "../state-io"
+import { runAutoflow } from "./autoflow"
+
+const MERGE_SCRIPT_PATH = join(import.meta.dir, "..", "..", "harness-merge-milestone.ts").replace(/\\/g, "/")
+const COMPACT_SCRIPT_SOURCE = join(import.meta.dir, "..", "..", "harness-compact.ts")
+
+let originalCwd = ""
+let workspaceDir = ""
+
+function runGit(args: string[]): { ok: boolean; output: string } {
+  const proc = Bun.spawnSync(["git", ...args], {
+    cwd: workspaceDir,
+    stdout: "pipe",
+    stderr: "pipe",
+  })
+  const stdout = new TextDecoder().decode(proc.stdout).trim()
+  const stderr = new TextDecoder().decode(proc.stderr).trim()
+  return { ok: proc.exitCode === 0, output: proc.exitCode === 0 ? stdout : stderr }
+}
+
+function write(path: string, content = ""): void {
+  const fullPath = join(workspaceDir, path)
+  mkdirSync(dirname(fullPath), { recursive: true })
+  writeFileSync(fullPath, content)
+}
+
+function createExecutingState(): ProjectState {
+  const state = initState({})
+  state.phase = "EXECUTING"
+  state.projectInfo.name = "closeout-fixture"
+  state.projectInfo.displayName = "Closeout Fixture"
+  state.projectInfo.concept = "Validate milestone closeout behavior."
+  state.projectInfo.problem = "Review milestones should not require manual merge commands."
+  state.projectInfo.goal = "Auto-merge, compact, and continue to the next milestone."
+  state.projectInfo.types = ["cli"]
+  state.projectInfo.aiProvider = "none"
+  state.projectInfo.teamSize = "solo"
+  state.projectInfo.isGreenfield = true
+  state.execution.currentMilestone = "M2"
+  state.execution.currentTask = "T201"
+  state.execution.currentWorktree = "../closeout-fixture-m2"
+  state.execution.milestones = [
+    {
+      id: "M1",
+      name: "Foundation",
+      branch: "milestone/m1-foundation",
+      worktreePath: "",
+      status: "REVIEW",
+      tasks: [
+        {
+          id: "T101",
+          name: "Ship foundation",
+          type: "TASK",
+          status: "DONE",
+          prdRef: "PRD#F101",
+          milestoneId: "M1",
+          dod: ["Foundation delivered"],
+          isUI: false,
+          affectedFiles: ["feature.txt"],
+          retryCount: 0,
+          commitHash: "deadbeef",
+        },
+      ],
+    },
+    {
+      id: "M2",
+      name: "Iteration Two",
+      branch: "milestone/m2-iteration-two",
+      worktreePath: "../closeout-fixture-m2",
+      status: "IN_PROGRESS",
+      tasks: [
+        {
+          id: "T201",
+          name: "Start next milestone",
+          type: "TASK",
+          status: "IN_PROGRESS",
+          prdRef: "PRD#F201",
+          milestoneId: "M2",
+          dod: ["Next milestone started"],
+          isUI: false,
+          affectedFiles: ["next.txt"],
+          retryCount: 0,
+        },
+      ],
+    },
+  ]
+  state.execution.allMilestonesComplete = false
+  return state
+}
+
+function createAtomicCommitState(): ProjectState {
+  const state = initState({})
+  state.phase = "EXECUTING"
+  state.projectInfo.name = "atomic-fixture"
+  state.projectInfo.displayName = "Atomic Fixture"
+  state.projectInfo.concept = "Validate atomic task commit enforcement."
+  state.projectInfo.problem = "Tasks can currently be closed with multiple commits."
+  state.projectInfo.goal = "Reject non-atomic task completion."
+  state.projectInfo.types = ["cli"]
+  state.projectInfo.aiProvider = "none"
+  state.projectInfo.teamSize = "solo"
+  state.projectInfo.isGreenfield = true
+  state.execution.currentMilestone = "M1"
+  state.execution.currentTask = "T101"
+  state.execution.currentWorktree = "../atomic-fixture-m1"
+  state.execution.milestones = [
+    {
+      id: "M1",
+      name: "Foundation",
+      branch: "milestone/m1-foundation",
+      worktreePath: "../atomic-fixture-m1",
+      status: "IN_PROGRESS",
+      tasks: [
+        {
+          id: "T101",
+          name: "One task, one commit",
+          type: "TASK",
+          status: "IN_PROGRESS",
+          prdRef: "PRD#F101",
+          milestoneId: "M1",
+          dod: ["Exactly one commit lands this task"],
+          isUI: false,
+          affectedFiles: ["one.txt", "two.txt"],
+          retryCount: 0,
+        },
+      ],
+    },
+  ]
+  state.execution.allMilestonesComplete = false
+  return state
+}
+
+beforeEach(() => {
+  originalCwd = process.cwd()
+  workspaceDir = mkdtempSync(join(tmpdir(), "harness-milestone-closeout-"))
+  process.chdir(workspaceDir)
+})
+
+afterEach(() => {
+  process.chdir(originalCwd)
+  rmSync(workspaceDir, { force: true, recursive: true })
+})
+
+test("autoflow auto-merges review milestones, compacts, and continues to the next milestone", async () => {
+  write(".harness/compact.ts", readFileSync(COMPACT_SCRIPT_SOURCE, "utf-8"))
+  write(
+    "package.json",
+    JSON.stringify(
+      {
+        name: "closeout-fixture",
+        private: true,
+        scripts: {
+          "harness:merge-milestone": `bun ${MERGE_SCRIPT_PATH}`,
+        },
+      },
+      null,
+      2,
+    ) + "\n",
+  )
+  write("docs/PRD.md", "# PRD\n")
+  write("docs/ARCHITECTURE.md", "# Architecture\n")
+  write("docs/PROGRESS.md", "# Progress\n")
+  write("baseline.txt", "main\n")
+  write("next.txt", "next milestone\n")
+
+  const state = createExecutingState()
+  writeProjectStateToDisk(state, ".harness/state.json")
+
+  expect(runGit(["init", "-b", "main"]).ok).toBe(true)
+  expect(runGit(["config", "user.name", "Harness Test"]).ok).toBe(true)
+  expect(runGit(["config", "user.email", "harness@example.com"]).ok).toBe(true)
+  expect(runGit(["add", "."]).ok).toBe(true)
+  expect(runGit(["commit", "-m", "chore: bootstrap"]).ok).toBe(true)
+
+  expect(runGit(["checkout", "-b", "milestone/m1-foundation"]).ok).toBe(true)
+  write("feature.txt", "merged from review milestone\n")
+  expect(runGit(["add", "feature.txt"]).ok).toBe(true)
+  const taskCommit = runGit([
+    "commit",
+    "-m",
+    "feat(T101): ship foundation",
+    "-m",
+    "Closes: PRD#F101",
+    "-m",
+    "Code Review: ✅",
+  ])
+  expect(taskCommit.ok).toBe(true)
+  const reviewCommit = runGit(["rev-parse", "HEAD"])
+  expect(reviewCommit.ok).toBe(true)
+
+  const persisted = JSON.parse(readFileSync(".harness/state.json", "utf-8")) as ProjectState
+  persisted.execution.milestones[0]!.tasks[0]!.commitHash = reviewCommit.output
+  writeProjectStateToDisk(persisted, ".harness/state.json")
+
+  expect(runGit(["checkout", "main"]).ok).toBe(true)
+
+  const exitCode = await runAutoflow()
+  expect(exitCode).toBe(0)
+
+  const updated = JSON.parse(readFileSync(".harness/state.json", "utf-8")) as ProjectState
+  expect(updated.execution.milestones[0]!.status).toBe("MERGED")
+  expect(updated.execution.currentMilestone).toBe("M2")
+  expect(updated.execution.currentTask).toBe("T201")
+  expect(existsSync(join(workspaceDir, "docs/progress/CONTEXT_SNAPSHOT.md"))).toBe(true)
+
+  const snapshot = readFileSync(join(workspaceDir, "docs/progress/CONTEXT_SNAPSHOT.md"), "utf-8")
+  expect(snapshot).toContain("> Mode: milestone")
+  expect(snapshot).toContain("- **Milestone**: M1")
+  expect(snapshot).toContain("Target milestone: M1")
+
+  expect(readFileSync(join(workspaceDir, "feature.txt"), "utf-8")).toContain("merged from review milestone")
+  expect(runGit(["branch", "--list", "milestone/m1-foundation"]).output).toBe("")
+})
+
+test("completeTask rejects multi-commit task histories", () => {
+  write("docs/PROGRESS.md", "# Progress\n")
+  write("baseline.txt", "main\n")
+  writeProjectStateToDisk(createAtomicCommitState(), ".harness/state.json")
+
+  expect(runGit(["init", "-b", "main"]).ok).toBe(true)
+  expect(runGit(["config", "user.name", "Harness Test"]).ok).toBe(true)
+  expect(runGit(["config", "user.email", "harness@example.com"]).ok).toBe(true)
+  expect(runGit(["add", "."]).ok).toBe(true)
+  expect(runGit(["commit", "-m", "chore: bootstrap"]).ok).toBe(true)
+
+  expect(runGit(["checkout", "-b", "milestone/m1-foundation"]).ok).toBe(true)
+
+  write("one.txt", "first change\n")
+  expect(runGit(["add", "one.txt"]).ok).toBe(true)
+  expect(
+    runGit([
+      "commit",
+      "-m",
+      "feat(T101): first part",
+      "-m",
+      "Closes: PRD#F101",
+      "-m",
+      "Code Review: ✅",
+    ]).ok,
+  ).toBe(true)
+
+  write("two.txt", "second change\n")
+  expect(runGit(["add", "two.txt"]).ok).toBe(true)
+  expect(
+    runGit([
+      "commit",
+      "-m",
+      "feat(T101): second part",
+      "-m",
+      "Closes: PRD#F101",
+      "-m",
+      "Code Review: ✅",
+    ]).ok,
+  ).toBe(true)
+
+  const head = runGit(["rev-parse", "HEAD"])
+  expect(head.ok).toBe(true)
+  expect(() => completeTask("T101", head.output)).toThrow(/exactly 1 commit/i)
+})

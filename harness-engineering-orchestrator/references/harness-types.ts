@@ -149,6 +149,8 @@ export interface Task {
   retryCount: number      // Debug Loop retry count (max 3)
   blockedReason?: string  // Reason when BLOCKED
   checklist?: TaskChecklist | SpikeChecklist
+  startedAt?: string      // ISO timestamp when the task first entered IN_PROGRESS
+  blockedAt?: string      // ISO timestamp for the latest BLOCKED transition
   completedAt?: string    // ISO timestamp
 }
 

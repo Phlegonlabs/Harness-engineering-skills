@@ -23,6 +23,7 @@ Use this file as a startup and compatibility index. Orchestrator-dispatched task
 2. **First principles** — solve the actual problem; do not preserve weak compatibility layers by default
 3. **The PRD is the source of truth** — every feature must map back to `docs/prd/`
 4. **Atomic commits** — each task must land as one independently verifiable commit
+5. **New scope returns to planning first** — if the user adds requirements outside the current task, update PRD / milestone planning first, then run `bun harness:sync-backlog`
 
 Full principles: `docs/ai/01-operating-principles.md`
 
@@ -46,7 +47,7 @@ Full principles: `docs/ai/01-operating-principles.md`
 
 Runtime auto-dispatch currently covers: `project-discovery`, `MARKET_RESEARCH`, `TECH_STACK`, `prd-architect`, `scaffold-generator`, `frontend-designer`, `execution-engine`, `code-reviewer`, `design-reviewer`, `harness-validator`, and `context-compactor`.
 After an interactive phase is complete, advance with `bun harness:advance`; keep `state.ts` for low-level mutation or tests.
-`bun harness:autoflow` only advances across phases whose required outputs already exist. If scaffold/runtime artifacts are missing, it stops and re-dispatches the current phase agent instead of skipping ahead.
+`bun harness:autoflow` only advances across phases whose required outputs already exist. If scaffold/runtime artifacts are missing, it stops and re-dispatches the current phase agent instead of skipping ahead. During `EXECUTING`, it also auto-compacts and merges `REVIEW` milestones from the main worktree, then continues into the next milestone.
 Do not install product frameworks such as Next.js or Tauri during scaffold setup. Add them only inside milestone tasks.
 `.env.local` is generated as a local-only skeleton and should be filled incrementally as integrations are introduced.
 
@@ -86,7 +87,7 @@ Full list: `docs/ai/03-guardrails.md`
 Git hooks, Claude Code hooks, and Codex CLI hooks automatically enforce Guardians G2-G10:
 
 - **Pre-commit**: blocks commits on main, files > 400 lines, forbidden patterns, secrets, LEARNING.md
-- **Commit-msg**: validates Task-ID format (T001, T002, etc.) during EXECUTING phase
+- **Commit-msg**: validates the current Task-ID and PRD mapping during EXECUTING on feature branches
 - **Pre-push**: validates dependency direction (`bun run check:deps`)
 - **Post-commit**: auto-syncs AGENTS.md ↔ CLAUDE.md
 - **Claude Code**: PreToolUse blocks forbidden patterns in Write/Edit and dangerous commands in Bash
@@ -121,8 +122,10 @@ Full execution rules: `docs/ai/04-task-execution.md`
 ## Context Health
 
 After each task is completed, run `bun harness:compact` to generate `docs/progress/CONTEXT_SNAPSHOT.md`.
-After a milestone merge, run `bun harness:compact --milestone`, then `/clear` is recommended.
+Milestone closeout now auto-runs milestone compact during `bun harness:merge-milestone` / `bun harness:autoflow`, then `/clear` is recommended.
 Task agents should prefer `.harness/state.json`, `docs/PROGRESS.md`, and `docs/progress/CONTEXT_SNAPSHOT.md` over scanning `docs/progress/`.
+
+If the user introduces new feature scope that is not represented by the current task's `prdRef`, do not implement it directly. First update `docs/PRD.md` / `docs/prd/`, then run `bun harness:sync-backlog`, then resume execution from the new milestone/task.
 
 Full details: `docs/ai/06-context-health.md`
 
@@ -132,6 +135,7 @@ Full details: `docs/ai/06-context-health.md`
 
 ```bash
 bun harness:advance
+bun harness:sync-backlog
 bun .harness/state.ts --show
 bun harness:env
 bun harness:validate --phase EXECUTING

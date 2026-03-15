@@ -16,6 +16,7 @@ Execute a standard functional Task and ensure each Task concludes with an Atomic
 
 ### Implementation Rules
 
+- Only implement the current Task. If the user adds new scope that is not covered by the current Task / `prdRef`, stop and return to PRD update + `bun harness:sync-backlog` first.
 - Dependency direction is fixed: `types → config → lib → services → app`
 - Split files immediately when they exceed 400 lines
 - Prohibited: `console.log`, `: any`, `@ts-ignore`
@@ -40,6 +41,7 @@ Validation Results:
 Atomic Commit:
 - Task-ID
 - Closes: PRD#F[ID]
+- Exactly one HEAD commit for the current Task before `completeTask()`
 ```
 
 ### Completion Contract
@@ -56,4 +58,4 @@ When the last Task in a Milestone is complete and the Milestone enters the Revie
 1. **Update GitBook guide** — ensure the user-facing documentation in `docs/guide/` reflects all features delivered in this Milestone
 2. **Add CHANGELOG entry** — append a summary of changes to `CHANGELOG.md` under the current version/milestone heading
 3. **Update API reference** — if the Milestone introduced or modified API endpoints, update `docs/api/` or the relevant API reference documentation
-4. **Merge milestone** — Return to the main worktree and run `bun harness:merge-milestone M[N]`
+4. **Merge milestone** — Return to the main worktree and run `bun harness:autoflow` to auto-compact, merge the REVIEW milestone, and continue into the next milestone. Manual fallback: `bun harness:merge-milestone M[N]`

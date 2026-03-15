@@ -151,7 +151,7 @@ function buildAfterCompletion(agentId: AgentId, state: ProjectState, validationC
     const lines = [
       `Validation: ${validationCmd}`,
       "If ✅ passed: proceed to Atomic Commit.",
-      "  Commit message must include: Design Review: ✅",
+      "  Commit message must include the current Task-ID, current PRD mapping, and: Design Review: ✅",
     ]
     if (task) {
       lines.push(`  State update: completeTask("${task.id}", "<commitHash>") from .harness/init.ts`)
@@ -165,7 +165,7 @@ function buildAfterCompletion(agentId: AgentId, state: ProjectState, validationC
     const lines = [
       `Validation: ${validationCmd}`,
       "If ✅ passed: proceed to Atomic Commit.",
-      "  Commit message must include: Code Review: ✅",
+      "  Commit message must include the current Task-ID, current PRD mapping, and: Code Review: ✅",
     ]
     if (task) {
       lines.push(`  State update: completeTask("${task.id}", "<commitHash>") from .harness/init.ts`)
@@ -178,6 +178,7 @@ function buildAfterCompletion(agentId: AgentId, state: ProjectState, validationC
   if (task) {
     const lines = [
       `Validation: ${validationCmd}`,
+      "Atomic Commit: create exactly one HEAD commit for this task, including the current Task-ID and PRD mapping.",
       `State update: completeTask("${task.id}", "<commitHash>") from .harness/init.ts`,
     ]
     if (task.isUI) {

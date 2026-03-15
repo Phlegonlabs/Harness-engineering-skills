@@ -9,6 +9,7 @@
  * Usage:
  *   bun .harness/compact.ts              → Task-level snapshot
  *   bun .harness/compact.ts --milestone  → Milestone-level archive + suggest /clear
+ *   bun .harness/compact.ts --milestone --milestone-id M[N] → Archive a specific milestone during closeout
  *   bun .harness/compact.ts --status     → Show context health advice
  */
 
@@ -26,18 +27,20 @@ interface MinimalState {
     currentMilestone: string
     currentTask: string
     currentWorktree: string
-    milestones: Array<{
-      id: string
-      name: string
-      status: string
-      tasks: Array<{
-        id: string
-        name: string
-        status: string
-        commitHash?: string
-      }>
-    }>
+    milestones: MinimalMilestone[]
   }
+}
+
+interface MinimalMilestone {
+  id: string
+  name: string
+  status: string
+  tasks: Array<{
+    id: string
+    name: string
+    status: string
+    commitHash?: string
+  }>
 }
 
 function readState(): MinimalState | null {
@@ -88,16 +91,35 @@ function getCompletedTasks(state: MinimalState): Array<{ id: string; name: strin
     .slice(-3)
 }
 
-function getRemainingTasks(state: MinimalState): Array<{ id: string; name: string; status: string }> {
-  const milestone = state.execution.milestones.find(m => m.id === state.execution.currentMilestone)
+function resolveMilestoneTarget(state: MinimalState, milestoneId?: string): MinimalMilestone | undefined {
+  if (milestoneId) {
+    return state.execution.milestones.find(milestone => milestone.id === milestoneId)
+  }
+
+  return state.execution.milestones.find(m => m.id === state.execution.currentMilestone)
+}
+
+function getRemainingTasks(
+  state: MinimalState,
+  milestoneId?: string,
+): Array<{ id: string; name: string; status: string }> {
+  const milestone = resolveMilestoneTarget(state, milestoneId)
   if (!milestone) return []
   return milestone.tasks.filter(t => t.status !== "DONE" && t.status !== "SKIPPED")
 }
 
-function generateSnapshot(state: MinimalState, isMilestone: boolean): string {
+function getMilestoneArchiveTasks(
+  milestone?: MinimalMilestone,
+): Array<{ commitHash?: string; id: string; name: string; status: string }> {
+  return milestone?.tasks ?? []
+}
+
+function generateSnapshot(state: MinimalState, isMilestone: boolean, milestoneId?: string): string {
   const now = new Date().toISOString()
   const recentTasks = getCompletedTasks(state)
-  const remaining = getRemainingTasks(state)
+  const targetMilestone = resolveMilestoneTarget(state, milestoneId)
+  const remaining = getRemainingTasks(state, milestoneId)
+  const archiveTasks = getMilestoneArchiveTasks(targetMilestone)
   const adrSummaries = collectAdrSummaries()
   const learningEntries = collectRecentLearning()
 
@@ -112,7 +134,7 @@ function generateSnapshot(state: MinimalState, isMilestone: boolean): string {
   lines.push(`## 🔴 RETAIN — Must Keep`)
   lines.push(``)
   lines.push(`- **Phase**: ${state.phase}`)
-  lines.push(`- **Milestone**: ${state.execution.currentMilestone}`)
+  lines.push(`- **Milestone**: ${targetMilestone?.id ?? state.execution.currentMilestone}`)
   lines.push(`- **Task**: ${state.execution.currentTask}`)
   lines.push(`- **Worktree**: ${state.execution.currentWorktree || "main"}`)
   lines.push(``)
@@ -136,7 +158,7 @@ function generateSnapshot(state: MinimalState, isMilestone: boolean): string {
     }
     lines.push(``)
   }
-  if (remaining.length > 0) {
+  if (!isMilestone && remaining.length > 0) {
     lines.push(`### Remaining Tasks (current milestone)`)
     lines.push(``)
     for (const t of remaining) {
@@ -166,7 +188,19 @@ function generateSnapshot(state: MinimalState, isMilestone: boolean): string {
   if (isMilestone) {
     lines.push(`## 📦 Milestone Archive`)
     lines.push(``)
-    lines.push(`All Tasks in the current milestone have been completed and merged.`)
+    if (targetMilestone) {
+      lines.push(`- Target milestone: ${targetMilestone.id} — ${targetMilestone.name} [${targetMilestone.status}]`)
+      lines.push(``)
+      lines.push(`### Milestone Tasks`)
+      lines.push(``)
+      for (const task of archiveTasks) {
+        lines.push(
+          `- ${task.id}: ${task.name} [${task.status}]${task.commitHash ? ` (${task.commitHash.slice(0, 7)})` : ""}`,
+        )
+      }
+      lines.push(``)
+    }
+    lines.push(`All Tasks in the target milestone have been completed and are ready for merge closeout.`)
     lines.push(`Consider running \`/compact\` with the above snapshot as retention guidance.`)
     lines.push(``)
   }
@@ -202,7 +236,7 @@ function showStatus(state: MinimalState | null): void {
   console.log("")
   console.log("Recommendations:")
   console.log("  • Run `bun harness:compact` after each Task completion")
-  console.log("  • Run `bun harness:compact --milestone` after Milestone merge")
+  console.log("  • Milestone closeout auto-runs `bun .harness/compact.ts --milestone --milestone-id M[N]`")
   console.log("  • Use snapshot as /compact retention guidance")
   console.log("")
 }
@@ -212,6 +246,13 @@ function showStatus(state: MinimalState | null): void {
 const args = process.argv.slice(2)
 const isMilestone = args.includes("--milestone")
 const isStatus = args.includes("--status")
+const milestoneId =
+  args.find(arg => arg.startsWith("--milestone-id="))?.slice("--milestone-id=".length) ??
+  (() => {
+    const index = args.indexOf("--milestone-id")
+    const next = index === -1 ? undefined : args[index + 1]
+    return next && !next.startsWith("--") ? next : undefined
+  })()
 
 const state = readState()
 
@@ -225,7 +266,12 @@ if (!state) {
   process.exit(1)
 }
 
-const snapshot = generateSnapshot(state, isMilestone)
+if (isMilestone && milestoneId && !resolveMilestoneTarget(state, milestoneId)) {
+  console.error(`❌ Milestone ${milestoneId} was not found in .harness/state.json`)
+  process.exit(1)
+}
+
+const snapshot = generateSnapshot(state, isMilestone, milestoneId)
 
 mkdirSync(PROGRESS_DIR, { recursive: true })
 writeFileSync(SNAPSHOT_PATH, snapshot)

@@ -1,8 +1,25 @@
 import { existsSync } from "fs"
-import type { Milestone, ProjectState, ProjectType } from "../types"
+import type { Milestone, ProjectState, ProjectType, Task } from "../types"
 import { initState, readState, writeState } from "./state-core"
 import { isUiProject, PRD_DIR, PRD_PATH, readDocument, STATE_PATH } from "./shared"
 import { createEmptyTaskChecklist } from "./task-checklist"
+
+type ParsedTaskSpec = {
+  affectedFiles: string[]
+  dod: string[]
+  isUI: boolean
+  milestoneId: string
+  name: string
+  prdRef: string
+}
+
+type ParsedMilestoneSpec = {
+  branch: string
+  id: string
+  name: string
+  tasks: ParsedTaskSpec[]
+  worktreePath: string
+}
 
 function slugify(value: string): string {
   return value
@@ -25,15 +42,15 @@ function inferUiTask(text: string, projectTypes: ProjectType[]): boolean {
   )
 }
 
-function parsePrdBacklog(state: ProjectState): Milestone[] {
+function parsePrdBacklogSpecs(state: ProjectState): ParsedMilestoneSpec[] {
   const content = readDocument(PRD_PATH, PRD_DIR)
   if (!content) {
     throw new Error("docs/prd/ or docs/PRD.md not found. Generate PRD before running --from-prd.")
   }
 
   const lines = content.split(/\r?\n/)
-  const milestones: Milestone[] = []
-  let currentMilestone: Milestone | null = null
+  const milestones: ParsedMilestoneSpec[] = []
+  let currentMilestone: ParsedMilestoneSpec | null = null
   let currentFeature:
     | {
         featureId: string
@@ -42,30 +59,21 @@ function parsePrdBacklog(state: ProjectState): Milestone[] {
         dod: string[]
       }
     | null = null
-  let taskCounter = 1
-
   const flushFeature = () => {
     if (!currentMilestone || !currentFeature) return
 
-    const taskId = `T${String(taskCounter).padStart(3, "0")}`
     const taskText = [currentMilestone.name, currentFeature.name, ...currentFeature.body, ...currentFeature.dod].join(" ")
     const taskIsUi = inferUiTask(taskText, state.projectInfo.types)
 
     currentMilestone.tasks.push({
-      id: taskId,
       name: currentFeature.name,
-      type: "TASK",
-      status: "PENDING",
       prdRef: `PRD#F${currentFeature.featureId}`,
       milestoneId: currentMilestone.id,
       dod: currentFeature.dod.length > 0 ? currentFeature.dod : ["Meet PRD acceptance criteria"],
       isUI: taskIsUi,
       affectedFiles: inferTaskFiles(taskIsUi),
-      retryCount: 0,
-      checklist: createEmptyTaskChecklist(),
     })
 
-    taskCounter++
     currentFeature = null
   }
 
@@ -87,7 +95,6 @@ function parsePrdBacklog(state: ProjectState): Milestone[] {
         name: milestoneName,
         branch: `milestone/m${milestoneNumber}-${slugify(milestoneName || "milestone")}`,
         worktreePath: `../${state.projectInfo.name || "project"}-m${milestoneNumber}`,
-        status: "PENDING",
         tasks: [],
       }
       continue
@@ -122,42 +129,112 @@ function parsePrdBacklog(state: ProjectState): Milestone[] {
   flushMilestone()
 
   if (milestones.length === 0) {
-    milestones.push({
-      id: "M1",
-      name: "Foundation",
-      branch: "milestone/m1-foundation",
-      worktreePath: `../${state.projectInfo.name || "project"}-m1`,
-      status: "PENDING",
-      tasks: [
-        {
-          id: "T001",
-          name: "Foundation setup",
-          type: "TASK",
-          status: "PENDING",
-          prdRef: "PRD#F001",
-          milestoneId: "M1",
-          dod: ["Complete foundational project initialization"],
-          isUI: isUiProject(state.projectInfo.types),
-          affectedFiles: inferTaskFiles(isUiProject(state.projectInfo.types)),
-          retryCount: 0,
-          checklist: createEmptyTaskChecklist(),
-        },
-      ],
-    })
-  }
-
-  if (milestones[0]?.tasks[0]) {
-    milestones[0].status = "IN_PROGRESS"
-    milestones[0].tasks[0].status = "IN_PROGRESS"
+      milestones.push({
+        id: "M1",
+        name: "Foundation",
+        branch: "milestone/m1-foundation",
+        worktreePath: `../${state.projectInfo.name || "project"}-m1`,
+        tasks: [
+          {
+            name: "Foundation setup",
+            prdRef: "PRD#F001",
+            milestoneId: "M1",
+            dod: ["Complete foundational project initialization"],
+            isUI: isUiProject(state.projectInfo.types),
+            affectedFiles: inferTaskFiles(isUiProject(state.projectInfo.types)),
+          },
+        ],
+      })
   }
 
   return milestones
 }
 
+function taskNumber(taskId: string): number {
+  const match = taskId.match(/^T(\d+)$/)
+  return match ? Number.parseInt(match[1], 10) : 0
+}
+
+function nextTaskId(nextNumber: number): string {
+  return `T${String(nextNumber).padStart(3, "0")}`
+}
+
+function createTaskFromSpec(spec: ParsedTaskSpec, taskId: string): Task {
+  return {
+    id: taskId,
+    name: spec.name,
+    type: "TASK",
+    status: "PENDING",
+    prdRef: spec.prdRef,
+    milestoneId: spec.milestoneId,
+    dod: [...spec.dod],
+    isUI: spec.isUI,
+    affectedFiles: [...spec.affectedFiles],
+    retryCount: 0,
+    checklist: createEmptyTaskChecklist(),
+  }
+}
+
+function buildMilestonesFromSpecs(specs: ParsedMilestoneSpec[]): Milestone[] {
+  let taskCounter = 1
+
+  return specs.map(spec => ({
+    id: spec.id,
+    name: spec.name,
+    branch: spec.branch,
+    worktreePath: spec.worktreePath,
+    status: "PENDING",
+    tasks: spec.tasks.map(task => createTaskFromSpec(task, nextTaskId(taskCounter++))),
+  }))
+}
+
+function activateNextAvailableTask(milestones: Milestone[]): {
+  currentMilestone: string
+  currentTask: string
+  currentWorktree: string
+} {
+  const activeTask = milestones
+    .flatMap(milestone => milestone.tasks.map(task => ({ milestone, task })))
+    .find(entry => entry.task.status === "IN_PROGRESS")
+
+  if (activeTask) {
+    activeTask.task.startedAt = activeTask.task.startedAt ?? new Date().toISOString()
+    if (activeTask.milestone.status === "PENDING") {
+      activeTask.milestone.status = "IN_PROGRESS"
+    }
+    return {
+      currentMilestone: activeTask.milestone.id,
+      currentTask: activeTask.task.id,
+      currentWorktree: activeTask.milestone.worktreePath,
+    }
+  }
+
+  for (const milestone of milestones) {
+    const nextTask = milestone.tasks.find(task => task.status === "PENDING")
+    if (!nextTask) continue
+
+    nextTask.status = "IN_PROGRESS"
+    nextTask.startedAt = nextTask.startedAt ?? new Date().toISOString()
+    if (milestone.status === "PENDING") {
+      milestone.status = "IN_PROGRESS"
+    }
+    return {
+      currentMilestone: milestone.id,
+      currentTask: nextTask.id,
+      currentWorktree: milestone.worktreePath,
+    }
+  }
+
+  return { currentMilestone: "", currentTask: "", currentWorktree: "" }
+}
+
+function hasOpenMilestones(milestones: Milestone[]): boolean {
+  return milestones.some(milestone => !["MERGED", "COMPLETE"].includes(milestone.status))
+}
+
 export function deriveExecutionFromPrd(baseState: ProjectState): ProjectState {
-  const milestones = parsePrdBacklog(baseState)
-  const firstMilestone = milestones[0]
-  const firstTask = firstMilestone?.tasks[0]
+  const milestones = buildMilestonesFromSpecs(parsePrdBacklogSpecs(baseState))
+  const pointers = activateNextAvailableTask(milestones)
 
   return {
     ...baseState,
@@ -166,9 +243,9 @@ export function deriveExecutionFromPrd(baseState: ProjectState): ProjectState {
         ? baseState.phase
         : "EXECUTING",
     execution: {
-      currentMilestone: firstMilestone?.id ?? "",
-      currentTask: firstTask?.id ?? "",
-      currentWorktree: firstMilestone?.worktreePath ?? "",
+      currentMilestone: pointers.currentMilestone,
+      currentTask: pointers.currentTask,
+      currentWorktree: pointers.currentWorktree,
       milestones,
       allMilestonesComplete: false,
     },
@@ -188,7 +265,135 @@ export function deriveExecutionFromPrd(baseState: ProjectState): ProjectState {
   }
 }
 
+export function syncExecutionFromPrd(baseState: ProjectState): {
+  addedMilestones: number
+  addedTasks: number
+  state: ProjectState
+} {
+  const parsedMilestones = parsePrdBacklogSpecs(baseState)
+  const existingMilestones = baseState.execution.milestones
+  const existingMilestoneMap = new Map(existingMilestones.map(milestone => [milestone.id, milestone]))
+  const highestTaskNumber = existingMilestones
+    .flatMap(milestone => milestone.tasks)
+    .reduce((highest, task) => Math.max(highest, taskNumber(task.id)), 0)
+
+  let nextTaskNumberValue = highestTaskNumber
+  let addedMilestones = 0
+  let addedTasks = 0
+
+  const mergedMilestones = parsedMilestones.map(spec => {
+    const existingMilestone = existingMilestoneMap.get(spec.id)
+    const existingTaskMap = new Map(existingMilestone?.tasks.map(task => [task.prdRef, task]) ?? [])
+    const parsedPrdRefs = new Set(spec.tasks.map(task => task.prdRef))
+
+    if (existingMilestone && ["MERGED", "COMPLETE"].includes(existingMilestone.status)) {
+      const appendedScope = spec.tasks.filter(task => !existingTaskMap.has(task.prdRef))
+      if (appendedScope.length > 0) {
+        throw new Error(
+          `Milestone ${spec.id} is already ${existingMilestone.status}. Add new scope as a new milestone instead of modifying a merged milestone.`,
+        )
+      }
+    }
+
+    const tasks = spec.tasks.map(taskSpec => {
+      const existingTask = existingTaskMap.get(taskSpec.prdRef)
+      if (existingTask) {
+        return {
+          ...existingTask,
+          name: taskSpec.name,
+          prdRef: taskSpec.prdRef,
+          milestoneId: spec.id,
+          dod: [...taskSpec.dod],
+          isUI: taskSpec.isUI,
+          affectedFiles: [...taskSpec.affectedFiles],
+        }
+      }
+
+      addedTasks++
+      nextTaskNumberValue += 1
+      return createTaskFromSpec(taskSpec, nextTaskId(nextTaskNumberValue))
+    })
+
+    const orphanTasks = existingMilestone?.tasks.filter(task => !parsedPrdRefs.has(task.prdRef)) ?? []
+    const milestone: Milestone = existingMilestone
+      ? {
+          ...existingMilestone,
+          name: spec.name,
+          branch: existingMilestone.branch || spec.branch,
+          worktreePath: existingMilestone.worktreePath || spec.worktreePath,
+          tasks: [...tasks, ...orphanTasks],
+        }
+      : {
+          id: spec.id,
+          name: spec.name,
+          branch: spec.branch,
+          worktreePath: spec.worktreePath,
+          status: "PENDING",
+          tasks,
+        }
+
+    if (!existingMilestone) {
+      addedMilestones++
+    }
+
+    return milestone
+  })
+
+  const parsedIds = new Set(parsedMilestones.map(milestone => milestone.id))
+  const orphanMilestones = existingMilestones.filter(milestone => !parsedIds.has(milestone.id))
+  const milestones = [...mergedMilestones, ...orphanMilestones]
+  const pointers = activateNextAvailableTask(milestones)
+  const shouldReopenExecution = hasOpenMilestones(milestones)
+
+  const nextState: ProjectState = {
+    ...baseState,
+    phase:
+      shouldReopenExecution && ["VALIDATING", "COMPLETE"].includes(baseState.phase)
+        ? "EXECUTING"
+        : baseState.phase,
+    execution: {
+      currentMilestone: pointers.currentMilestone,
+      currentTask: pointers.currentTask,
+      currentWorktree: pointers.currentWorktree,
+      milestones,
+      allMilestonesComplete: !shouldReopenExecution && milestones.length > 0,
+    },
+    docs: {
+      ...baseState.docs,
+      prd: {
+        ...baseState.docs.prd,
+        exists: true,
+        milestoneCount: Math.max(baseState.docs.prd.milestoneCount, parsedMilestones.length),
+      },
+      progress: {
+        ...baseState.docs.progress,
+        exists: true,
+        lastUpdated: new Date().toISOString(),
+      },
+    },
+  }
+
+  return {
+    addedMilestones,
+    addedTasks,
+    state: nextState,
+  }
+}
+
 export function bootstrapExecutionFromPrd(): ProjectState {
   const baseState = existsSync(STATE_PATH) ? readState() : initState({})
   return writeState(deriveExecutionFromPrd(baseState))
+}
+
+export function syncExecutionBacklogFromPrd(): {
+  addedMilestones: number
+  addedTasks: number
+  state: ProjectState
+} {
+  const baseState = existsSync(STATE_PATH) ? readState() : initState({})
+  const result = syncExecutionFromPrd(baseState)
+  return {
+    ...result,
+    state: writeState(result.state),
+  }
 }

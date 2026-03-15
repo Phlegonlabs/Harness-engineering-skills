@@ -8,7 +8,8 @@
 
 Runtime auto-dispatch currently covers `project-discovery`, `MARKET_RESEARCH`, `TECH_STACK`, `prd-architect`, `scaffold-generator`, the UI design loop, `EXECUTING`, `VALIDATING`, and `context-compactor`.
 After an interactive phase is complete, advance the lifecycle with `bun harness:advance`.
-`bun harness:autoflow` advances only when the current phase artifacts already exist on disk. Missing scaffold/runtime outputs keep the workflow on the current phase.
+`bun harness:autoflow` advances only when the current phase artifacts already exist on disk. Missing scaffold/runtime outputs keep the workflow on the current phase. During `EXECUTING`, it auto-compacts and merges `REVIEW` milestones, then continues into the next milestone.
+If scope changes after execution begins, update the PRD first and run `bun harness:sync-backlog` before implementing the new work.
 
 ## Key Features
 

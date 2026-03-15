@@ -183,6 +183,7 @@ export async function validatePhaseGate(
       check(existsSync("scripts/harness-local/restore.ts"), "scripts/harness-local/restore.ts is present")
       check(existsSync("scripts/harness-local/manifest.json"), "scripts/harness-local/manifest.json is present")
       check(packageJsonHasScript("harness:advance"), "package.json includes harness:advance")
+      check(packageJsonHasScript("harness:sync-backlog"), "package.json includes harness:sync-backlog")
       check(packageJsonHasScript("harness:add-surface"), "package.json includes harness:add-surface")
       check(packageJsonHasScript("harness:autoflow"), "package.json includes harness:autoflow")
       check(packageJsonHasScript("harness:audit"), "package.json includes harness:audit")

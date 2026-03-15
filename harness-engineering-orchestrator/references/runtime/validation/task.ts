@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "fs"
 import type { SpikeChecklist, TaskChecklist, ProjectState, Task } from "../../types"
+import { inspectAtomicTaskCommit } from "../atomic-commit"
 import { getLearningPaths } from "../learning"
 import { documentExists, PROGRESS_DIR, PROGRESS_PATH } from "../shared"
 import { mergeSpikeChecklist, mergeTaskChecklist } from "../task-checklist"
@@ -73,6 +74,10 @@ export async function validateTask(
   const blockingForbiddenHits = forbiddenHits.filter(hit => hit.blocking)
   const warningForbiddenHits = forbiddenHits.filter(hit => !hit.blocking)
   const currentChecklist = task.checklist as TaskChecklist | undefined
+  const atomicCommit =
+    task.commitHash && task.commitHash.trim().length > 0
+      ? inspectAtomicTaskCommit(state, task.id, task.commitHash)
+      : undefined
 
   const checklist = mergeTaskChecklist(task.checklist as TaskChecklist | undefined, {
     prdDodMet: Boolean(currentChecklist?.prdDodMet) || isTaskFinalized(task),
@@ -83,7 +88,7 @@ export async function validateTask(
     buildPassed: build.ok,
     fileSizeOk: overLimit.length === 0,
     noForbiddenPatterns: blockingForbiddenHits.length === 0,
-    atomicCommitDone: Boolean(currentChecklist?.atomicCommitDone) || Boolean(task.commitHash),
+    atomicCommitDone: atomicCommit?.ok ?? false,
     progressUpdated:
       Boolean(currentChecklist?.progressUpdated) ||
       (isTaskFinalized(task) && documentExists(PROGRESS_PATH, PROGRESS_DIR)),
@@ -109,7 +114,11 @@ export async function validateTask(
       summarizeFirstFailure(blockingForbiddenHits, hit => `${hit.file}:${hit.line} ${hit.content}`) ??
         "console.log / : any / @ts-ignore / sk- / Bearer / ghp_",
     ],
-    ["atomicCommitDone", "Atomic Commit is present [G10]", "git log --oneline -1"],
+    [
+      "atomicCommitDone",
+      "Atomic Commit is present [G10]",
+      atomicCommit?.reasons[0] ?? "Commit the task as one HEAD commit with Task-ID and PRD mapping.",
+    ],
     ["progressUpdated", "PROGRESS.md was updated", "docs/PROGRESS.md / docs/progress/"],
   ]
 

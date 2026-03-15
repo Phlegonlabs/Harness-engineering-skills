@@ -23,10 +23,10 @@ For future task execution, prefer `docs/PROGRESS.md` + `docs/progress/CONTEXT_SN
 ### After Milestone Merge
 
 ```bash
-bun harness:compact --milestone
+bun harness:autoflow
 ```
 
-Generates a milestone-level archive. It is recommended to run `/clear` to reset the conversation, then restore from the snapshot.
+Milestone closeout now auto-runs a milestone-level compact during merge. Manual fallback: `bun harness:merge-milestone M[N]`, which also runs the milestone compact internally. It is recommended to run `/clear` to reset the conversation, then restore from the snapshot.
 
 ### Check Context Health
 

@@ -1,4 +1,5 @@
 import type { Milestone, Phase, ProjectState, Task, TaskChecklist } from "../types"
+import { formatAtomicCommitFailure, inspectAtomicTaskCommit } from "./atomic-commit"
 import { readState, writeState } from "./state-core"
 import { mergeTaskChecklist } from "./task-checklist"
 
@@ -10,11 +11,33 @@ function findTaskLocation(state: ProjectState, taskId: string): { milestone: Mil
   return null
 }
 
+function preserveActiveTask(state: ProjectState): boolean {
+  if (!state.execution.currentTask) return false
+
+  const location = findTaskLocation(state, state.execution.currentTask)
+  if (!location || location.task.status !== "IN_PROGRESS") {
+    return false
+  }
+
+  location.task.startedAt = location.task.startedAt ?? new Date().toISOString()
+  state.execution.currentMilestone = location.milestone.id
+  state.execution.currentWorktree = location.milestone.worktreePath
+  if (location.milestone.status === "PENDING") {
+    location.milestone.status = "IN_PROGRESS"
+  }
+  return true
+}
+
 function activateNextTask(state: ProjectState): void {
+  if (preserveActiveTask(state)) {
+    return
+  }
+
   for (const milestone of state.execution.milestones) {
     const nextTask = milestone.tasks.find(task => task.status === "PENDING")
     if (!nextTask) continue
 
+    nextTask.startedAt = nextTask.startedAt ?? new Date().toISOString()
     milestone.status = milestone.status === "PENDING" ? "IN_PROGRESS" : milestone.status
     nextTask.status = "IN_PROGRESS"
     state.execution.currentMilestone = milestone.id
@@ -53,14 +76,19 @@ export function completeTask(taskId: string, commitHash: string): ProjectState {
   const location = findTaskLocation(state, taskId)
   if (!location) throw new Error(`Task ${taskId} not found`)
 
+  const atomicCommit = inspectAtomicTaskCommit(state, taskId, commitHash)
+  if (!atomicCommit.ok) {
+    throw new Error(formatAtomicCommitFailure(taskId, atomicCommit))
+  }
+
   location.task.status = "DONE"
-  location.task.commitHash = commitHash
+  location.task.commitHash = atomicCommit.commitHash
   location.task.completedAt = new Date().toISOString()
   if (location.task.type === "TASK") {
     const checklist = location.task.checklist as Partial<TaskChecklist> | undefined
     location.task.checklist = mergeTaskChecklist(checklist, {
       prdDodMet: true,
-      atomicCommitDone: commitHash.trim().length > 0,
+      atomicCommitDone: atomicCommit.ok,
       progressUpdated: true,
     })
   }
@@ -73,7 +101,7 @@ export function completeTask(taskId: string, commitHash: string): ProjectState {
   activateNextTask(state)
 
   const updated = writeState(state)
-  console.log(`✅ Task ${taskId} marked DONE (commit: ${commitHash})`)
+  console.log(`✅ Task ${taskId} marked DONE (commit: ${atomicCommit.commitHash})`)
   return updated
 }
 
@@ -85,6 +113,7 @@ export function blockTask(taskId: string, reason: string): ProjectState {
   location.task.status = "BLOCKED"
   location.task.retryCount = (location.task.retryCount ?? 0) + 1
   location.task.blockedReason = reason
+  location.task.blockedAt = new Date().toISOString()
   if (location.task.type === "TASK") {
     const checklist = location.task.checklist as Partial<TaskChecklist> | undefined
     location.task.checklist = mergeTaskChecklist(checklist, {

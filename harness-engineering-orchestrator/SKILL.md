@@ -53,6 +53,7 @@ When this skill runs, act as the **Orchestrator**.
 - Treat `docs/PRD.md` and `docs/ARCHITECTURE.md` as the only planning source of truth
 - Advance phases through the runtime (`bun harness:advance` or the underlying `.harness/*` scripts); do not fake completion
 - `bun harness:autoflow` may only advance after the current phase's required outputs exist on disk; missing scaffold/runtime artifacts must keep the workflow on the current phase
+- If the user adds scope outside the current task or milestone, write it back into the PRD first, then run `bun harness:sync-backlog` before any implementation starts
 - Read only the agent or reference file needed for the current step
 - Default the conversation to milestone and task progress, not long file inventories
 
@@ -265,8 +266,8 @@ Task types:
 When all tasks in a milestone are complete (status: REVIEW):
 
 1. Complete the Milestone Review Checklist (GitBook, CHANGELOG, API docs)
-2. Run `bun harness:compact --milestone`
-3. Run `bun harness:merge-milestone M[N]` from the main worktree
+2. From the main worktree, run `bun harness:autoflow` to auto-compact, merge the REVIEW milestone, and continue directly into the next milestone
+3. Manual fallback: run `bun harness:merge-milestone M[N]` from the main worktree; milestone compact now runs inside the merge command
 4. Continue to the next milestone, or `bun harness:advance` when all milestones are merged
 
 ### Progress Reporting

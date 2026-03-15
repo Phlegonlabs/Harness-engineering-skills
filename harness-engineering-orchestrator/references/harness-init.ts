@@ -10,13 +10,24 @@
  */
 
 import { existsSync } from "fs"
-import { bootstrapExecutionFromPrd } from "./runtime/backlog"
+import { bootstrapExecutionFromPrd, syncExecutionBacklogFromPrd } from "./runtime/backlog"
 import { advancePhase, blockTask, completeMilestone, completeTask } from "./runtime/execution"
 import { getLearningPaths, syncLearning } from "./runtime/learning"
 import { ensureProjectDirs, initState, readState, updateState, writeState } from "./runtime/state-core"
 import { STATE_PATH } from "./runtime/shared"
 
-export { advancePhase, blockTask, bootstrapExecutionFromPrd, completeMilestone, completeTask, getLearningPaths, initState, syncLearning, updateState }
+export {
+  advancePhase,
+  blockTask,
+  bootstrapExecutionFromPrd,
+  completeMilestone,
+  completeTask,
+  getLearningPaths,
+  initState,
+  syncExecutionBacklogFromPrd,
+  syncLearning,
+  updateState,
+}
 
 function getArgValue(flag: string): string | undefined {
   const args = process.argv.slice(2)
@@ -37,6 +48,14 @@ if (import.meta.main) {
     console.log(`✅ Created ${updated.execution.milestones.length} milestone(s) from docs/prd/ (or docs/PRD.md)`)
     console.log(
       `   Current task: ${updated.execution.currentTask || "—"}  |  Worktree: ${updated.execution.currentWorktree || "—"}`,
+    )
+  } else if (process.argv.includes("--sync-from-prd")) {
+    const updated = syncExecutionBacklogFromPrd()
+    console.log(
+      `✅ Synced PRD backlog: +${updated.addedMilestones} milestone(s), +${updated.addedTasks} task(s)`,
+    )
+    console.log(
+      `   Current task: ${updated.state.execution.currentTask || "—"}  |  Worktree: ${updated.state.execution.currentWorktree || "—"}`,
     )
   } else if (process.argv.includes("--complete-task")) {
     const taskId = getArgValue("--complete-task")

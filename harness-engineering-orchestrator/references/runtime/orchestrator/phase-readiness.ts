@@ -126,6 +126,7 @@ function scaffoldChecks(state: ProjectState): OutputCheck[] {
     check("scripts/harness-local/restore.ts is present", existsSync("scripts/harness-local/restore.ts")),
     check("scripts/harness-local/manifest.json is present", existsSync("scripts/harness-local/manifest.json")),
     check("package.json includes harness:advance", packageJsonHasScript("harness:advance")),
+    check("package.json includes harness:sync-backlog", packageJsonHasScript("harness:sync-backlog")),
     check("package.json includes harness:autoflow", packageJsonHasScript("harness:autoflow")),
     check(
       "package.json includes harness:merge-milestone",

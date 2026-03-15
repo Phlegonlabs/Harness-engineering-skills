@@ -128,6 +128,7 @@ ${ctx.description}
 \`\`\`bash
 bun install
 bun harness:advance
+bun harness:sync-backlog
 bun harness:add-surface --type agent
 bun harness:sync-docs
 bun harness:audit
@@ -135,6 +136,7 @@ bun harness:audit
 
 This workspace is monorepo-first. Keep adding new surfaces inside the same repository as later milestones.
 Do not bootstrap product frameworks such as Next.js, Tauri, or provider SDK stacks during scaffold setup. Introduce them only inside milestone tasks.
+If product scope changes after execution begins, update the PRD first and run \`bun harness:sync-backlog\` before implementing the new work.
 
 - \`apps/\`: current surfaces -> ${ctx.workspaceList.join(", ")}
 - \`packages/shared/\`: shared contracts and utilities
@@ -154,6 +156,7 @@ function renderQuickStart(ctx: AutomationContext): string {
 bun install
 bun .harness/state.ts --show
 bun harness:advance
+bun harness:sync-backlog
 bun harness:env
 bun harness:validate --phase EXECUTING
 bun harness:audit
@@ -206,7 +209,8 @@ ${ctx.description}
 
 Runtime auto-dispatch currently covers \`project-discovery\`, \`MARKET_RESEARCH\`, \`TECH_STACK\`, \`prd-architect\`, \`scaffold-generator\`, the UI design loop, \`EXECUTING\`, \`VALIDATING\`, and \`context-compactor\`.
 After an interactive phase is complete, advance the lifecycle with \`bun harness:advance\`.
-\`bun harness:autoflow\` advances only after the current phase's required outputs exist; if scaffold artifacts are missing, it stops and surfaces the missing phase work instead of skipping ahead.
+\`bun harness:autoflow\` advances only after the current phase's required outputs exist; if scaffold artifacts are missing, it stops and surfaces the missing phase work instead of skipping ahead. During \`EXECUTING\`, it auto-compacts and merges \`REVIEW\` milestones, then continues into the next milestone.
+If product scope changes after execution begins, update the PRD first and run \`bun harness:sync-backlog\` before implementing the new work.
 During scaffold setup, do not pre-install project frameworks such as Next.js or Tauri; add them later inside milestone tasks.
 
 ## Quick Start

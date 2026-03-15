@@ -161,18 +161,20 @@ bun .harness/orchestrator.ts --code-review  # Dispatch Code Reviewer (non-UI tas
 - If the same task fails 3 times in a row, pause and inform the user
 - Use `blockTask()` for `BLOCKED` tasks; do not fake completion
 - Any new requirement must update the PRD before creating a new milestone or worktree
+- After PRD changes, run `bun harness:sync-backlog` to append the new milestone/task into `.harness/state.json` before execution resumes
+- If the request is not represented by the current task's `prdRef`, do not implement it yet
 
 ### Milestone Completion Protocol
 
 When all tasks in a milestone are DONE and the milestone enters REVIEW:
 
 1. **Review Checklist** — Complete the items in `agents/execution-engine/02-task-loop.md` (GitBook, CHANGELOG, API docs)
-2. **Compact context** — Run `bun harness:compact --milestone`
-3. **Merge milestone** — From the main worktree, run:
+2. **Auto closeout** — From the main worktree, run:
    ```bash
-   bun harness:merge-milestone M[N]
+   bun harness:autoflow
    ```
-   This merges the branch into main, removes the worktree, deletes the branch, and updates state to MERGED.
+   Autoflow now compacts the REVIEW milestone, merges it into main, removes the worktree, deletes the branch, updates state to MERGED, and continues into the next milestone.
+3. **Manual fallback** — If you need to close out manually, run `bun harness:merge-milestone M[N]` from the main worktree. Milestone compact now runs inside the merge command.
 4. **Verify** — Run `bun .harness/orchestrator.ts` to confirm the next milestone is activated
 5. **Continue or advance** — If more milestones remain, proceed. If all are MERGED, run `bun harness:advance` to enter VALIDATING.
 

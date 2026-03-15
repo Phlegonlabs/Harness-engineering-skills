@@ -390,6 +390,7 @@ function updatePackageJson(logger: SetupLogger): void {
       "dependency-cruiser --config .dependency-cruiser.cjs src --output-type err-long",
     "harness:init": "bun .harness/init.ts",
     "harness:init:prd": "bun .harness/init.ts --from-prd",
+    "harness:sync-backlog": "bun .harness/init.ts --sync-from-prd",
     "harness:advance": "bun .harness/advance.ts",
     "harness:add-surface": "bun .harness/add-surface.ts",
     "harness:autoflow": "bun .harness/orchestrator.ts --auto",

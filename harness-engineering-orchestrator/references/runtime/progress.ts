@@ -9,16 +9,45 @@ function statusIcon(status: Task["status"]): string {
       return "[x]"
     case "SKIPPED":
       return "[-]"
+    case "BLOCKED":
+      return "[!]"
+    case "IN_PROGRESS":
+      return "[~]"
     default:
       return "[ ]"
   }
 }
 
+function formatTimestamp(value?: string): string | undefined {
+  if (!value) return undefined
+  return value.replace("T", " ").replace(/\.\d{3}Z$/, "Z")
+}
+
+function taskLifecycleSuffix(task: Task): string {
+  const details: string[] = []
+
+  if (task.commitHash) {
+    details.push(`commit \`${task.commitHash.slice(0, 7)}\``)
+  }
+  if (task.status === "IN_PROGRESS" && task.startedAt) {
+    details.push(`started ${formatTimestamp(task.startedAt)}`)
+  }
+  if (task.status === "BLOCKED") {
+    details.push(`blocked ${formatTimestamp(task.blockedAt) ?? "time not recorded"}`)
+    if (task.blockedReason) {
+      details.push(`reason: ${task.blockedReason}`)
+    }
+  }
+  if (task.status === "DONE" && task.completedAt) {
+    details.push(`completed ${formatTimestamp(task.completedAt)}`)
+  }
+
+  return details.length > 0 ? ` — ${details.join(" — ")}` : ""
+}
+
 function taskLabel(task: Task, currentTaskId: string): string {
   const suffix = task.id === currentTaskId ? " — <- Current Task" : ""
-  const commit = task.commitHash ? ` — commit \`${task.commitHash}\`` : ""
-  const blocked = task.status === "BLOCKED" ? " — BLOCKED" : ""
-  return `${statusIcon(task.status)} ${task.id}: ${task.name}${commit}${blocked}${suffix}`
+  return `${statusIcon(task.status)} ${task.id}: ${task.name}${taskLifecycleSuffix(task)}${suffix}`
 }
 
 function milestoneHeading(milestone: Milestone): string {
@@ -40,15 +69,67 @@ function progressBar(done: number, total: number): string {
 }
 
 function findCurrentTask(state: ProjectState): Task | undefined {
-  return state.execution.milestones
+  const explicitTask = state.execution.milestones
     .flatMap(milestone => milestone.tasks)
     .find(task => task.id === state.execution.currentTask)
+  if (explicitTask) return explicitTask
+
+  return state.execution.milestones
+    .flatMap(milestone => milestone.tasks)
+    .find(task => task.status === "IN_PROGRESS")
+    ?? state.execution.milestones.flatMap(milestone => milestone.tasks).find(task => task.status === "PENDING")
 }
 
-function nextWorktreePath(state: ProjectState): string {
+function findCurrentMilestone(state: ProjectState, currentTask?: Task): Milestone | undefined {
+  const explicitMilestone = state.execution.milestones.find(milestone => milestone.id === state.execution.currentMilestone)
+  if (explicitMilestone) return explicitMilestone
+
+  if (currentTask) {
+    const taskMilestone = state.execution.milestones.find(milestone => milestone.tasks.some(task => task.id === currentTask.id))
+    if (taskMilestone) return taskMilestone
+  }
+
+  return state.execution.milestones.find(milestone => milestone.status === "IN_PROGRESS")
+    ?? state.execution.milestones.find(milestone => milestone.status === "REVIEW")
+    ?? state.execution.milestones.find(milestone => milestone.status === "PENDING")
+}
+
+function nextWorktreePath(state: ProjectState, currentMilestone?: Milestone): string {
   if (state.execution.currentWorktree) return state.execution.currentWorktree
+  if (currentMilestone?.worktreePath) return currentMilestone.worktreePath
   if (state.projectInfo.name) return `../${state.projectInfo.name}-m1`
   return "../project-m1"
+}
+
+function buildTaskActivityLog(state: ProjectState): string[] {
+  const activity = state.execution.milestones.flatMap(milestone =>
+    milestone.tasks.flatMap(task => {
+      const entries: Array<{ at: string; text: string }> = []
+      if (task.startedAt) {
+        entries.push({
+          at: task.startedAt,
+          text: `${task.startedAt}: ${task.id} entered IN_PROGRESS in ${milestone.id} — ${task.name}`,
+        })
+      }
+      if (task.blockedAt) {
+        entries.push({
+          at: task.blockedAt,
+          text: `${task.blockedAt}: ${task.id} became BLOCKED — ${task.blockedReason ?? "reason not recorded"}`,
+        })
+      }
+      if (task.completedAt) {
+        entries.push({
+          at: task.completedAt,
+          text: `${task.completedAt}: ${task.id} completed${task.commitHash ? ` (${task.commitHash.slice(0, 7)})` : ""}`,
+        })
+      }
+      return entries
+    }),
+  )
+
+  return activity
+    .sort((left, right) => right.at.localeCompare(left.at))
+    .map(entry => `- ${entry.text.replace("T", " ").replace(/\.\d{3}Z$/, "Z")}`)
 }
 
 function buildProgressSnapshot(state: ProjectState) {
@@ -57,10 +138,9 @@ function buildProgressSnapshot(state: ProjectState) {
   const totalTasks = tasks.length
   const percent = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100)
   const currentTask = findCurrentTask(state)
-  const currentMilestone =
-    state.execution.milestones.find(milestone => milestone.id === state.execution.currentMilestone) ??
-    state.execution.milestones[0]
+  const currentMilestone = findCurrentMilestone(state, currentTask) ?? state.execution.milestones[0]
   const blockedTasks = tasks.filter(task => task.status === "BLOCKED")
+  const activityLog = buildTaskActivityLog(state)
 
   const backlog =
     state.execution.milestones.length === 0
@@ -83,7 +163,7 @@ function buildProgressSnapshot(state: ProjectState) {
       : `${blockedTasks
           .map(
             task =>
-              `| ${task.id} | ${task.blockedReason ?? "Not recorded"} | Requires user or external dependency | ${task.completedAt ?? state.updatedAt} |`,
+              `| ${task.id} | ${task.blockedReason ?? "Not recorded"} | Requires user or external dependency | ${formatTimestamp(task.blockedAt) ?? formatTimestamp(state.updatedAt)} |`,
           )
           .join("\n")}\n`
 
@@ -108,6 +188,7 @@ function buildProgressSnapshot(state: ProjectState) {
     blockedTable,
     worktreeLines,
     currentTaskLabel,
+    activityLog,
   }
 }
 
@@ -124,7 +205,7 @@ function generateProgressIndexMarkdown(state: ProjectState): string {
 
 **Current Phase**: ${state.phase}
 **Current Milestone**: ${snapshot.currentMilestone ? `${snapshot.currentMilestone.id} — ${snapshot.currentMilestone.name}` : "Not yet created"}
-**Current Worktree**: \`${nextWorktreePath(state)}\`
+**Current Worktree**: \`${nextWorktreePath(state, snapshot.currentMilestone)}\`
 **Current Task**: ${snapshot.currentTaskLabel}
 **Overall Progress**: [${progressBar(snapshot.doneTasks, snapshot.totalTasks)}] ${snapshot.doneTasks}/${snapshot.totalTasks} Tasks (${snapshot.percent}%)
 **Last Updated**: ${state.updatedAt}
@@ -139,6 +220,7 @@ function generateProgressIndexMarkdown(state: ProjectState): string {
 4. [04 Blockers](./progress/04-blockers.md)
 5. [05 Worktrees](./progress/05-worktrees.md)
 6. [06 Next Session](./progress/06-next-session.md)
+7. [07 Activity](./progress/07-activity.md)
 `
 }
 
@@ -154,7 +236,7 @@ function generateProgressModules(state: ProjectState): Record<string, string> {
 - **Progress**: [${progressBar(snapshot.doneTasks, snapshot.totalTasks)}] ${snapshot.doneTasks}/${snapshot.totalTasks} Tasks (${snapshot.percent}%)`,
     "02-current-state.md": `## 2. Current State
 
-- **Worktree**: \`${nextWorktreePath(state)}\`
+- **Worktree**: \`${nextWorktreePath(state, snapshot.currentMilestone)}\`
 - **Last updated**: ${state.updatedAt}
 - **Execution source of truth**: \`.harness/state.json\`
 - **Current phase gate**: Run \`bun harness:validate --phase ${state.phase}\` (if applicable)`,
@@ -191,6 +273,10 @@ codex "Read docs/PROGRESS.md, docs/progress/, AGENTS.md, ~/.codex/LEARNING.md, t
 ## Recent Decision Log
 
 - ${state.updatedAt}: state sync complete
+`,
+    "07-activity.md": `## 7. Task Activity
+
+${snapshot.activityLog.length > 0 ? snapshot.activityLog.join("\n") : "- No task lifecycle events recorded yet."}
 `,
   }
 }

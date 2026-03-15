@@ -79,6 +79,36 @@ function getCurrentPhase(): string {
   }
 }
 
+function getCurrentTaskContext(): { id: string; prdRef: string } | null {
+  try {
+    const state = JSON.parse(readFileSync(".harness/state.json", "utf-8")) as {
+      execution?: {
+        currentTask?: string
+        milestones?: Array<{
+          tasks?: Array<{
+            id?: string
+            prdRef?: string
+          }>
+        }>
+      }
+    }
+    const currentTaskId = state.execution?.currentTask
+    if (!currentTaskId) return null
+
+    for (const milestone of state.execution?.milestones ?? []) {
+      for (const task of milestone.tasks ?? []) {
+        if (task.id === currentTaskId) {
+          return { id: currentTaskId, prdRef: task.prdRef ?? "" }
+        }
+      }
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // Git hook handlers
 // ---------------------------------------------------------------------------
@@ -139,15 +169,30 @@ function hookCommitMsg(msgFile: string): void {
   // G10: Only enforce during EXECUTING phase
   const phase = getCurrentPhase()
   if (phase !== "EXECUTING") return
+  if (isProtectedBranch()) return
 
   if (!msgFile || !existsSync(msgFile)) return
 
   const msg = readFileSync(msgFile, "utf-8").trim()
-  const taskIdPattern = /T\d{3,}/
+  const currentTask = getCurrentTaskContext()
+  const errors: string[] = []
 
-  if (!taskIdPattern.test(msg)) {
+  if (currentTask) {
+    if (!msg.includes(currentTask.id)) {
+      errors.push(`G10: commit message must include the current Task-ID (${currentTask.id})`)
+    }
+    if (currentTask.prdRef && !msg.includes(currentTask.prdRef)) {
+      errors.push(`G10: commit message must include the current PRD mapping (${currentTask.prdRef})`)
+    }
+  } else if (!/T\d{3,}/.test(msg)) {
+    errors.push("G10: commit message must include a Task-ID (e.g. T001, T002)")
+  }
+
+  if (errors.length > 0) {
     console.error("\n[harness-hooks] Commit-msg blocked:")
-    console.error("  G10: commit message must include a Task-ID (e.g. T001, T002)")
+    for (const error of errors) {
+      console.error(`  ${error}`)
+    }
     console.error(`  Current message: "${msg.split(/\r?\n/)[0]}"`)
     console.error("")
     process.exit(1)

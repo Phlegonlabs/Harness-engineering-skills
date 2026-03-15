@@ -50,6 +50,10 @@ function stopAtBoundary(state: ProjectState): number {
   return 0
 }
 
+function getReviewMilestone(state: ProjectState) {
+  return state.execution.milestones.find(milestone => milestone.status === "REVIEW")
+}
+
 export async function runAutoflow(): Promise<number> {
   for (let step = 0; step < AUTOFLOW_MAX_STEPS; step++) {
     const state = readRuntimeState()
@@ -90,6 +94,19 @@ export async function runAutoflow(): Promise<number> {
       }
 
       case "EXECUTING": {
+        const reviewMilestone = getReviewMilestone(state)
+        if (reviewMilestone) {
+          if (
+            !(await runCommand(
+              `bun harness:merge-milestone ${reviewMilestone.id} (auto closeout + compact)`,
+              ["run", "harness:merge-milestone", reviewMilestone.id],
+            ))
+          ) {
+            return stopAtBoundary(readRuntimeState())
+          }
+          continue
+        }
+
         if (!state.execution.allMilestonesComplete) {
           return stopAtBoundary(state)
         }

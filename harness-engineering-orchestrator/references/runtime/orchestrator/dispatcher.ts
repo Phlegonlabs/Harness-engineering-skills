@@ -26,6 +26,10 @@ function getCurrentTask(state: ProjectState): Task | undefined {
     .find(t => t.id === state.execution.currentTask)
 }
 
+function needsBacklogSync(state: ProjectState): boolean {
+  return state.docs.prd.milestoneCount > state.execution.milestones.length
+}
+
 function agentDispatch(
   agentId: AgentId,
   state: ProjectState,
@@ -84,11 +88,19 @@ function getDiscoveryAction(state: ProjectState): DispatchResult {
 function getExecutingAction(state: ProjectState): DispatchResult {
   const milestone = getCurrentMilestone(state)
   if (!milestone) {
+    if (needsBacklogSync(state)) {
+      return manualGuidance(
+        "PRD contains unsynced milestone scope. Run:\n" +
+        "  bun harness:sync-backlog\n" +
+        "  bun .harness/orchestrator.ts"
+      )
+    }
     const reviewMilestone = state.execution.milestones.find(m => m.status === "REVIEW")
     if (reviewMilestone) {
       return manualGuidance(
-        `Milestone ${reviewMilestone.id} is in REVIEW. Complete the Milestone Review Checklist, then run:\n` +
-        `  bun harness:merge-milestone ${reviewMilestone.id}`
+        `Milestone ${reviewMilestone.id} is in REVIEW.\n` +
+        `From the main worktree, run bun harness:autoflow to auto-compact, merge, and continue.\n` +
+        `Manual fallback: bun harness:merge-milestone ${reviewMilestone.id}`
       )
     }
     return noAction("No active milestone. Run: bun .harness/init.ts --from-prd")
@@ -96,8 +108,9 @@ function getExecutingAction(state: ProjectState): DispatchResult {
 
   if (milestone.status === "REVIEW") {
     return manualGuidance(
-      `Milestone ${milestone.id} is in REVIEW. Complete the Milestone Review Checklist, then run:\n` +
-      `  bun harness:merge-milestone ${milestone.id}`
+      `Milestone ${milestone.id} is in REVIEW.\n` +
+      `From the main worktree, run bun harness:autoflow to auto-compact, merge, and continue.\n` +
+      `Manual fallback: bun harness:merge-milestone ${milestone.id}`
     )
   }
 
@@ -177,6 +190,14 @@ function getScaffoldAction(state: ProjectState): DispatchResult {
 }
 
 function getCompleteAction(state: ProjectState): DispatchResult {
+  if (needsBacklogSync(state)) {
+    return manualGuidance(
+      "New PRD milestone scope was detected after completion. Run:\n" +
+      "  bun harness:sync-backlog\n" +
+      "  bun .harness/orchestrator.ts"
+    )
+  }
+
   return agentDispatch(
     "context-compactor",
     state,

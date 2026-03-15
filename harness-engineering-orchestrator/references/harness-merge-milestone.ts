@@ -2,8 +2,8 @@
 /**
  * .harness/merge-milestone.ts
  *
- * Merges a REVIEW milestone branch into main, removes the worktree,
- * deletes the branch, and updates state to MERGED.
+ * Compacts a REVIEW milestone, merges its branch into main, removes the
+ * worktree, deletes the branch, and updates state to MERGED.
  */
 
 import { completeMilestone } from "./runtime/execution"
@@ -52,6 +52,13 @@ const taskRange = milestone.tasks.length > 0
   ? `${milestone.tasks[0].id}-${milestone.tasks[milestone.tasks.length - 1].id}`
   : "no-tasks"
 const mergeMessage = `feat(${milestone.id.toLowerCase()}): ${milestone.name} [${taskRange}]`
+
+console.log(`\n🧠 Writing milestone snapshot for ${milestone.id}...`)
+const compactResult = run(["bun", ".harness/compact.ts", "--milestone", "--milestone-id", milestone.id])
+if (!compactResult.ok) {
+  console.error(`❌ Milestone compact failed: ${compactResult.stderr || compactResult.stdout}`)
+  process.exit(1)
+}
 
 console.log(`\n🔀 Merging ${milestone.branch} into ${currentBranch}...`)
 const mergeResult = run(["git", "merge", "--no-ff", milestone.branch, "-m", mergeMessage])

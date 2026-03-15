@@ -3,6 +3,7 @@
 ```bash
 bun harness:advance
 bun .harness/init.ts --from-prd
+bun harness:sync-backlog
 bun .harness/state.ts --show
 bun harness:env
 bun harness:validate --phase EXECUTING

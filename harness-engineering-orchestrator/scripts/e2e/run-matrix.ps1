@@ -244,6 +244,7 @@ function Test-ScaffoldContract {
     "check:deps",
     "harness:advance",
     "harness:add-surface",
+    "harness:sync-backlog",
     "harness:autoflow",
     "harness:audit",
     "harness:hooks:install",
