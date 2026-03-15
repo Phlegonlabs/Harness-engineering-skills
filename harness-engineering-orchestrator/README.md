@@ -6,6 +6,63 @@ Harness Engineering and Orchestrator is a runtime-managed delivery workflow for 
 
 This README is the high-level map of the current system. The operating contract still lives in [SKILL.md](./SKILL.md) and [agents/orchestrator.md](./agents/orchestrator.md).
 
+## Why This Project Exists
+
+Most agent workflows fail in the same places:
+
+- planning lives only in chat history
+- scope expands without being written back into the repo
+- execution starts before PRD and architecture are real
+- milestone progress is hard to resume across sessions or across agents
+
+Harness Engineering and Orchestrator makes the repository itself the working memory. The core idea is simple: if a planning decision matters, it must exist in repo artifacts before execution continues.
+
+## Who This Is For
+
+- Teams bootstrapping a new software project with explicit PRD, architecture, and milestone control
+- Existing repos that need a stricter execution loop instead of ad-hoc AI prompting
+- Human + agent collaborations where state must survive across sessions, handoffs, and model changes
+- Projects that want versioned delivery like `V1 -> deploy review -> V2`, instead of one endless backlog
+
+## Install
+
+Install this skill from the public repository:
+
+```bash
+npx skills add https://github.com/Phlegonlabs/Harness-skills --skill harness-engineering-orchestrator
+```
+
+Then use it inside a target repository:
+
+```bash
+# greenfield
+bun <path-to-skill>/scripts/harness-setup.ts
+
+# existing repo hydration
+bun <path-to-skill>/scripts/harness-setup.ts --isGreenfield=false --skipGithub=true
+```
+
+## What You Get
+
+- Repo-backed planning artifacts: `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`
+- Runtime state and orchestration under `.harness/`
+- Explicit phase gates before the project can advance
+- Milestone and task execution tied back to PRD refs
+- Atomic-commit enforcement for task closeout
+- Product-stage delivery with `V1 / V2 / V3`, deploy review, and explicit promotion
+- Hooks and guardrails that keep agents from skipping process
+
+## Open Source Project Shape
+
+This skill is designed as an open workflow project, not as a one-off prompt pack.
+
+- The skill contract lives in `SKILL.md`
+- The runtime behavior lives in `references/`
+- The role prompts live in `agents/`
+- The generated project scaffold lives in `templates/`
+
+If you are evaluating the project from the outside, read this README first, then [SKILL.md](./SKILL.md), then [agents/orchestrator.md](./agents/orchestrator.md).
+
 ## System Model
 
 The workflow has two layers:
@@ -161,3 +218,14 @@ Use this as the practical runbook from project start to project finish.
 - [agents/orchestrator.md](./agents/orchestrator.md)
 - [references/gates-and-guardians.md](./references/gates-and-guardians.md)
 - [references/hooks-guide.md](./references/hooks-guide.md)
+
+## Contributing
+
+Contributions are most useful when they make the workflow more explicit and less guess-driven. Good contributions usually strengthen one of these layers:
+
+- phase gates and guardian enforcement
+- PRD / architecture parsing and backlog sync
+- milestone closeout and staged delivery flow
+- templates, docs, and setup ergonomics for real repositories
+
+When contributing, prefer changes that make the runtime harder to bypass and easier to resume.
